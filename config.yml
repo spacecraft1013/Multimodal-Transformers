@@ -1,0 +1,35 @@
+device: cuda:0
+
+model:
+  d_model: 1024
+  n_layers: 16
+  n_heads: 8
+  head_dim: 64
+  feedforward_dim: 2048
+  seq_len: 1024
+  image_size: 256
+  patch_size: 16
+  dropout: 0.1
+
+optimizer:
+  type: Adam
+  ZeRO: False
+  params:
+    lr: 0.001
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    weight_decay: 0
+
+training:
+  train_iters: 100000
+  gradient_accumulation_steps: 2
+  gradient_clipping: 1.0
+  image_batch_size: 16
+  text_batch_size: 12
+
+data:
+  data_dir: data/
+  num_preprocessing_workers: -1
+  imagenet_dir: B:/Imagenet
+  wikitext_dir: data/WikiText
+  wikitext_dataset: wikitext.pth
