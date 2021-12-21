@@ -14,7 +14,6 @@ from tqdm import trange
 
 from utils import WikiTextDataset, build_model, build_optimizer
 
-
 config = yaml.safe_load(open('config.yml', 'r'))
 
 device = torch.device(config['device'])
