@@ -74,13 +74,24 @@ running_loss_images = 0.0
 image_steps = 0
 text_steps = 0
 
+if config['training']['start_with'] == 'images':
+    using_images = True
+    using_text = False
+elif config['training']['start_with'] == 'text':
+    using_images = False
+    using_text = True
+else:
+    raise ValueError('Invalid start_with value')
+
 mask = torch.triu(torch.ones(config['model']['seq_len'], config['model']
                              ['seq_len'], device=device) * float('-inf'), diagonal=1)
 
 progressbar = trange(config['training']['train_iters'], desc='Training')
 for step in progressbar:
-    using_images = step % 2 == 0
-    using_text = step % 2 == 1
+    if step % config['training']['alternate_iters'] == 0:
+        using_images = not using_images
+        using_text = not using_text
+
     if using_images:
         model = image_transformer
         image_steps += 1
