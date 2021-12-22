@@ -122,3 +122,11 @@ for step in progressbar:
         scaler.update()
 
         optimizer.zero_grad(set_to_none=True)
+
+save_dict = {
+    'transformer_encoder': image_transformer.transformer_encoder.state_dict(),
+    'image_transformer_params': {k: v for k, v in image_transformer.state_dict() if k not in image_transformer.transformer_encoder.state_dict()},
+    'text_transformer_params': {k: v for k, v in text_transformer.state_dict() if k not in text_transformer.transformer_encoder.state_dict()}
+}
+
+torch.save(save_dict, 'model.pt')
