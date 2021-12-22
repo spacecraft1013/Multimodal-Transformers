@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+from typing import Generator, Iterable
 
 import tokenizers
 import torch
@@ -37,8 +38,10 @@ def build_model(d_model: int = None, n_layers: int = None, n_heads: int = None, 
     text_transformer = TextTransformer(encoder, d_model, seq_len, vocab_len)
 
     if load_path is not None:
-        image_transformer.load_state_dict(image_transformer_state_dict, strict=False)
-        text_transformer.load_state_dict(text_transformer_state_dict, strict=False)
+        image_transformer.load_state_dict(
+            image_transformer_state_dict, strict=False)
+        text_transformer.load_state_dict(
+            text_transformer_state_dict, strict=False)
 
     num_parameters = sum(param.numel() for param in encoder.parameters())
     return image_transformer, text_transformer, num_parameters
@@ -64,6 +67,24 @@ def build_optimizer(image_transformer: ImageTransformer, text_transformer: TextT
         optimizer = optimizer_class(params, **optimizer_args)
 
     return optimizer
+
+
+def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
+    if first_item == 'images':
+        iterable1, iterable1type = images, 'images'
+        iterable2, iterable2type = text, 'text'
+    elif first_item == 'text':
+        iterable1, iterable1type = text, 'text'
+        iterable2, iterable2type = images, 'images'
+    else:
+        raise ValueError(
+            f'First item must be either "images" or "text", got {first_item}')
+
+    while True:
+        for i in range(frequency):
+            yield next(iterable1), iterable1type
+        for i in range(frequency):
+            yield next(iterable2), iterable2type
 
 
 class WikiTextDataset(Dataset):

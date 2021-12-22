@@ -12,7 +12,8 @@ from torchvision import datasets as imagesdatasets
 from torchvision import transforms
 from tqdm import trange
 
-from utils import WikiTextDataset, build_model, build_optimizer
+from utils import (WikiTextDataset, alternating_generator, build_model,
+                   build_optimizer)
 
 config = yaml.safe_load(open('config.yml', 'r'))
 
@@ -49,7 +50,8 @@ text_loader = DataLoader(
 imagenet_cycler = itertools.cycle(imagenet_loader)
 text_cycler = itertools.cycle(text_loader)
 
-loader = itertools.chain.from_iterable(zip(imagenet_cycler, text_cycler))
+loader = alternating_generator(config['training']['alternate_iters'],
+                               imagenet_cycler, text_cycler, first_item=config['training']['start_with'])
 
 print("Building Model & Optimizer")
 image_transformer, text_transformer, num_parameters = build_model(
@@ -81,26 +83,28 @@ elif config['training']['start_with'] == 'text':
     using_images = False
     using_text = True
 else:
-    raise ValueError('Invalid start_with value')
+    raise ValueError(
+        f'Start value must be either "images" or "text", got {config["training"]["start_with"]}')
 
 mask = torch.triu(torch.ones(config['model']['seq_len'], config['model']
                              ['seq_len'], device=device) * float('-inf'), diagonal=1)
 
 progressbar = trange(config['training']['train_iters'], desc='Training')
 for step in progressbar:
-    if step % config['training']['alternate_iters'] == 0:
-        using_images = not using_images
-        using_text = not using_text
 
-    if using_images:
+    data, datatype = next(loader)
+
+    if datatype == 'images':
+        using_images = True
+        using_text = False
         model = image_transformer
         image_steps += 1
 
-    elif using_text:
+    elif datatype == 'text':
+        using_images = False
+        using_text = True
         model = text_transformer
         text_steps += 1
-
-    data = next(loader)
 
     src, tgt = data
     src, tgt = src.to(device), tgt.to(device)
