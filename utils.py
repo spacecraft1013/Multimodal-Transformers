@@ -13,15 +13,32 @@ from torch.utils.data import Dataset
 from model import ImageTransformer, TextTransformer, TransformerEncoder
 
 
-def build_model(d_model: int, n_layers: int, n_heads: int, head_dim: int, feedforward_dim: int, seq_len: int, image_size: int, patch_size: int, num_classes: int, vocab_len: int, dropout: float = 0.1, **kwargs) -> tuple[ImageTransformer, TextTransformer, int]:
+def build_model(d_model: int = None, n_layers: int = None, n_heads: int = None, head_dim: int = None, feedforward_dim: int = None, seq_len: int = None, image_size: int = None, patch_size: int = None, num_classes: int = None, vocab_len: int = None, dropout: float = None, load_path: str = None, **kwargs) -> tuple[ImageTransformer, TextTransformer, int]:
+    if load_path is not None:
+        data = torch.load(load_path)
+        config = data['config']
+        transformer_state_dict = data['transformer_encoder']
+        image_transformer_state_dict = data['image_transformer_params']
+        text_transformer_state_dict = data['text_transformer_params']
+
+        for k, v in config['model'].items():
+            locals()[k] = v
+
     encoder = TransformerEncoder(
         n_layers, d_model, n_heads, head_dim, feedforward_dim, dropout)
     # decoder = TransformerDecoder(
     #     n_layers, d_model, n_heads, head_dim, feedforward_dim, dropout)
 
+    if load_path is not None:
+        encoder.load_state_dict(transformer_state_dict)
+
     image_transformer = ImageTransformer(
         encoder, d_model, num_classes, image_size, patch_size)
     text_transformer = TextTransformer(encoder, d_model, seq_len, vocab_len)
+
+    if load_path is not None:
+        image_transformer.load_state_dict(image_transformer_state_dict, strict=False)
+        text_transformer.load_state_dict(text_transformer_state_dict, strict=False)
 
     num_parameters = sum(param.numel() for param in encoder.parameters())
     return image_transformer, text_transformer, num_parameters
