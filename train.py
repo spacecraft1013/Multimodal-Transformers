@@ -2,7 +2,6 @@ import itertools
 import os
 
 import torch
-import yaml
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from torch import nn
@@ -12,50 +11,50 @@ from torchvision import datasets as imagesdatasets
 from torchvision import transforms
 from tqdm import trange
 
-from utils import (WikiTextDataset, alternating_generator, build_model,
+from utils import (Config, WikiTextDataset, alternating_generator, build_model,
                    build_optimizer)
 
-config = yaml.safe_load(open('config.yml', 'r'))
+config = Config('config.yml')
 
-device = torch.device(config['device'])
-data_dir = config['data']['data_dir']
+device = torch.device(config.device)
+data_dir = config.data.data_dir
 
 print("Loading Imagenet")
 image_transforms = transforms.Compose([
-    transforms.Resize((config['model']['image_size'],
-                       config['model']['image_size'])),
+    transforms.Resize((config.model.image_size,
+                       config.model.image_size)),
     transforms.ToTensor()
 ])
 
 imagenet_dataset = imagesdatasets.ImageNet(
-    config['data']['imagenet_dir'], transform=image_transforms)
+    config.data.imagenet_dir, transform=image_transforms)
 imagenet_loader = DataLoader(imagenet_dataset, shuffle=True,
-                             batch_size=config['training']['image_batch_size'], pin_memory=True, drop_last=True)
+                             batch_size=config.training.image_batch_size, pin_memory=True, F=True)
 
 print("Loading WikiText103")
-if not os.path.exists(os.path.join(data_dir, config['data']['wikitext_dataset'])):
+if not os.path.exists(os.path.join(data_dir, config.data.wikitext_dataset)):
     tokenizer = Tokenizer(BPE.from_file(
         vocab=os.path.join(data_dir, 'vocab.json'), merges=os.path.join(data_dir, 'merges.txt')))
     text_dataset = WikiTextDataset(
-        config['data']['wikitext_dir'], split='train', tokenizer=tokenizer, seq_len=config['model']['seq_len'], num_preprocessing_workers=config['data']['num_preprocessing_workers'])
+        config.data.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=config.model.seq_len, num_preprocessing_workers=config.data.num_preprocessing_workers)
     text_dataset.save(os.path.join(
-        data_dir, config['data']['wikitext_dataset']))
+        data_dir, config.data.wikitext_dataset))
 else:
     text_dataset = WikiTextDataset.from_preprocessed(
-        os.path.join(data_dir, config['data']['wikitext_dataset']), seq_len=config['model']['seq_len'])
+        os.path.join(data_dir, config.data.wikitext_dataset), seq_len=config.model.seq_len)
 
 text_loader = DataLoader(
-    text_dataset, batch_size=config['training']['text_batch_size'], pin_memory=True, drop_last=True)
+    text_dataset, batch_size=config.training.text_batch_size, pin_memory=True, drop_last=True)
 
 imagenet_cycler = itertools.cycle(imagenet_loader)
 text_cycler = itertools.cycle(text_loader)
 
-loader = alternating_generator(config['training']['alternate_iters'],
-                               imagenet_cycler, text_cycler, first_item=config['training']['start_with'])
+loader = alternating_generator(config.training.alternate_iters,
+                               imagenet_cycler, text_cycler, first_item=config.training.start_with)
 
 print("Building Model & Optimizer")
 image_transformer, text_transformer, num_parameters = build_model(
-    num_classes=1000, vocab_len=text_dataset.vocab_size, **config['model'])
+    num_classes=1000, vocab_len=text_dataset.vocab_size, **config.model)
 
 image_transformer.to(device)
 text_transformer.to(device)
@@ -63,7 +62,7 @@ text_transformer.to(device)
 print(f"Number of transformer parameters: {num_parameters:,}")
 
 optimizer = build_optimizer(
-    image_transformer, text_transformer, config['optimizer'])
+    image_transformer, text_transformer, config.optimizer)
 scaler = GradScaler()
 loss_fn = nn.CrossEntropyLoss()
 
@@ -76,20 +75,20 @@ running_loss_images = 0.0
 image_steps = 0
 text_steps = 0
 
-if config['training']['start_with'] == 'images':
+if config.training.start_with == 'images':
     using_images = True
     using_text = False
-elif config['training']['start_with'] == 'text':
+elif config.training.start_with == 'text':
     using_images = False
     using_text = True
 else:
     raise ValueError(
-        f'Start value must be either "images" or "text", got {config["training"]["start_with"]}')
+        f'Start value must be either "images" or "text", got {config.training.start_with}')
 
-mask = torch.triu(torch.ones(config['model']['seq_len'], config['model']
-                             ['seq_len'], device=device) * float('-inf'), diagonal=1)
+mask = torch.triu(torch.ones(config.model.seq_len, config.model
+                             .seq_len, device=device) * float('-inf'), diagonal=1)
 
-progressbar = trange(config['training']['train_iters'], desc='Training')
+progressbar = trange(config.training.train_iters, desc='Training')
 for step in progressbar:
 
     data, datatype = next(loader)
@@ -128,9 +127,9 @@ for step in progressbar:
 
     scaler.scale(loss).backward()
 
-    if step % config['training']['gradient_accumulation_steps'] == 0:
+    if step % config.training.gradient_accumulation_steps == 0:
         nn.utils.clip_grad_norm_(
-            model.parameters(), config['training']['gradient_clipping'])
+            model.parameters(), config.training.gradient_clipping)
 
         scaler.unscale_(optimizer)
         scaler.step(optimizer)
@@ -140,9 +139,9 @@ for step in progressbar:
 
 save_dict = {
     'config': config,
-    'transformer': image_transformer.transformer.state_dict(),
-    'image_transformer_params': {k: v for k, v in image_transformer.state_dict() if k not in image_transformer.transformer.state_dict()},
-    'text_transformer_params': {k: v for k, v in text_transformer.state_dict() if k not in text_transformer.transformer.state_dict()}
+    'transformer_encoder': image_transformer.transformer_encoder.state_dict(),
+    'image_transformer_params': {k: v for k, v in image_transformer.state_dict() if k not in image_transformer.transformer_encoder.state_dict()},
+    'text_transformer_params': {k: v for k, v in text_transformer.state_dict() if k not in text_transformer.transformer_encoder.state_dict()}
 }
 
 torch.save(save_dict, 'model.pt')
