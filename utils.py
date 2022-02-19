@@ -51,15 +51,15 @@ def build_optimizer(image_transformer: ImageTransformer, text_transformer: TextT
         list(text_transformer.parameters())
     optimizer_args = optimizer_config['params']
 
-    if optimizer_config['type'].lower() == 'adam':
+    if optimizer_config.type.lower() == 'adam':
         optimizer_class = optim.Adam
-    elif optimizer_config['type'].lower() == 'sgd':
+    elif optimizer_config.type.lower() == 'sgd':
         optimizer_class = optim.SGD
     else:
         raise NotImplementedError(
             "Only Adam and SGD optimizers are currently supported")
 
-    if optimizer_config['ZeRO']:
+    if optimizer_config.ZeRO:
         optimizer = ZeroRedundancyOptimizer(
             params, optimizer_class, **optimizer_args)
     else:
