@@ -29,7 +29,7 @@ image_transforms = transforms.Compose([
 imagenet_dataset = imagesdatasets.ImageNet(
     config.data.imagenet_dir, transform=image_transforms)
 imagenet_loader = DataLoader(imagenet_dataset, shuffle=True,
-                             batch_size=config.training.image_batch_size, pin_memory=True, F=True)
+                             batch_size=config.training.image_batch_size, pin_memory=True, drop_last=True)
 
 print("Loading WikiText103")
 if not os.path.exists(os.path.join(data_dir, config.data.wikitext_dataset)):
