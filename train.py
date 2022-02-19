@@ -139,9 +139,9 @@ for step in progressbar:
 
 save_dict = {
     'config': config,
-    'transformer_encoder': image_transformer.transformer_encoder.state_dict(),
-    'image_transformer_params': {k: v for k, v in image_transformer.state_dict() if k not in image_transformer.transformer_encoder.state_dict()},
-    'text_transformer_params': {k: v for k, v in text_transformer.state_dict() if k not in text_transformer.transformer_encoder.state_dict()}
+    'transformer': image_transformer.transformer.state_dict(),
+    'image_transformer_params': {k: v for k, v in image_transformer.state_dict() if k not in image_transformer.transformer.state_dict()},
+    'text_transformer_params': {k: v for k, v in text_transformer.state_dict() if k not in text_transformer.transformer.state_dict()}
 }
 
 torch.save(save_dict, 'model.pt')
