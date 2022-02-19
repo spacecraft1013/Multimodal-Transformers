@@ -94,7 +94,8 @@ class Config:
     def add_dict(self, d: dict) -> None:
         for k, v in d.items():
             if isinstance(v, dict):
-                self.add_dict(v)
+                self.k = Config()
+                self.k.add_dict(v)
             else:
                 setattr(self, k, v)
 
