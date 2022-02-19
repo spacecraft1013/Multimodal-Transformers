@@ -87,9 +87,10 @@ def alternating_generator(frequency: int, images: Iterable, text: Iterable, firs
 
 
 class Config:
-    def __init__(self, config_path: str) -> None:
-        self.config_dict = yaml.safe_load(open(config_path, 'r'))
-        self.add_dict(self.config_dict)
+    def __init__(self, config_path: str = None) -> None:
+        if config_path is not None:
+            self.config_dict = yaml.safe_load(open(config_path, 'r'))
+            self.add_dict(self.config_dict)
 
     def add_dict(self, d: dict) -> None:
         for k, v in d.items():
