@@ -49,7 +49,7 @@ def build_model(d_model: int = None, n_layers: int = None, n_heads: int = None, 
 def build_optimizer(image_transformer: ImageTransformer, text_transformer: TextTransformer, optimizer_config: dict) -> torch.optim.Optimizer:
     params = list(image_transformer.parameters()) + \
         list(text_transformer.parameters())
-    optimizer_args = optimizer_config['params']
+    optimizer_args = optimizer_config.params.__dict__
 
     if optimizer_config.type.lower() == 'adam':
         optimizer_class = optim.Adam
