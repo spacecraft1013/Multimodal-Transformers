@@ -5,10 +5,10 @@ from torch import nn
 
 
 class ImageTransformer(nn.Module):
-    def __init__(self, transformer_encoder: nn.Module, d_model: int, num_classes: int, image_size: int, patch_size: int, num_channels: int = 3) -> None:
+    def __init__(self, transformer: nn.Module, d_model: int, num_classes: int, image_size: int, patch_size: int, num_channels: int = 3) -> None:
         super().__init__()
 
-        self.transformer_encoder = transformer_encoder
+        self.transformer = transformer
         self.patch_size = patch_size
 
         self.linear_projection = nn.Linear(
@@ -36,7 +36,7 @@ class ImageTransformer(nn.Module):
         input_vector = torch.cat([class_tokens, input_vector], dim=1)
 
         input_vector += self.positions[:, :(n + 1)]
-        x = self.transformer_encoder(input_vector)
+        x = self.transformer(input_vector)
 
         x = self.classification_head(x)
 
@@ -59,10 +59,10 @@ class ImageTransformerClassificationHead(nn.Module):
 
 
 class TextTransformer(nn.Module):
-    def __init__(self, transformer_encoder: nn.Module, d_model: int, seq_length: int, vocab_len: int) -> None:
+    def __init__(self, transformer: nn.Module, d_model: int, seq_length: int, vocab_len: int) -> None:
         super().__init__()
 
-        self.transformer_encoder = transformer_encoder
+        self.transformer = transformer
 
         self.input_embedding = nn.Embedding(vocab_len, d_model)
         self.decoder = nn.Linear(d_model, vocab_len)
@@ -76,7 +76,7 @@ class TextTransformer(nn.Module):
 
         src += self.positional_encoding
 
-        x = self.transformer_encoder(src, mask)
+        x = self.transformer(src, mask)
         y = self.decoder(x)
         return y
 
@@ -140,7 +140,7 @@ class AttentionHead(nn.Module):
         return out
 
 
-class TransformerEncoderLayer(nn.Module):
+class TransformerLayer(nn.Module):
     def __init__(self, d_model: int, num_heads: int, head_dim: int, feedforward_dim: int, dropout: float) -> None:
         super().__init__()
         self.attention = ResidualConnection(
@@ -162,39 +162,11 @@ class TransformerEncoderLayer(nn.Module):
         return x
 
 
-class TransformerDecoderLayer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, head_dim: int, feedforward_dim: int, dropout: float) -> None:
-        super().__init__()
-
-        self.self_attention = ResidualConnection(
-            MultiHeadAttention(d_model, num_heads, head_dim),
-            d_model, dropout)
-
-        self.encoder_decoder_attention = ResidualConnection(
-            MultiHeadAttention(d_model, num_heads, head_dim),
-            d_model, dropout)
-
-        self.feedforward = nn.Sequential(
-            nn.Linear(d_model, feedforward_dim),
-            nn.ReLU(),
-            nn.Linear(feedforward_dim, d_model)
-        )
-
-        self.feedforward_block = ResidualConnection(
-            self.feedforward, d_model, dropout)
-
-    def forward(self, x: torch.Tensor, memory: torch.Tensor) -> torch.Tensor:
-        x = self.self_attention(x, x, x)
-        x = self.encoder_decoder_attention(memory, memory, x)
-        x = self.feedforward_block(x)
-        return x
-
-
-class TransformerEncoder(nn.Module):
+class Transformer(nn.Module):
     def __init__(self, num_layers: int, d_model: int, num_heads: int, head_dim: int, feedforward_dim: int, dropout: float = 0.1) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([TransformerEncoderLayer(
+        self.layers = nn.ModuleList([TransformerLayer(
             d_model, num_heads, head_dim, feedforward_dim, dropout) for _ in range(num_layers)])
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
@@ -203,23 +175,6 @@ class TransformerEncoder(nn.Module):
             x = layer(x, mask)
 
         return x
-
-
-class TransformerDecoder(nn.Module):
-    def __init__(self, num_layers: int, d_model: int, num_heads: int, head_dim: int, feedforward_dim: int, dropout: float = 0.1) -> None:
-        super().__init__()
-
-        self.layers = nn.ModuleList([TransformerDecoderLayer(
-            d_model, num_heads, head_dim, feedforward_dim, dropout) for _ in range(num_layers)])
-        self.linear = nn.Linear(d_model, d_model)
-        self.softmax = nn.Softmax(dim=-1)
-
-    def forward(self, x: torch.Tensor, memory: torch.Tensor) -> torch.Tensor:
-
-        for layer in self.layers:
-            x = layer(x, memory)
-
-        return self.softmax(self.linear(x))
 
 
 def positional_encoding(sequence_length: int, d_model: int) -> torch.Tensor:
