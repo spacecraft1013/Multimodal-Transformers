@@ -54,7 +54,7 @@ loader = alternating_generator(config.training.alternate_iters,
 
 print("Building Model & Optimizer")
 image_transformer, text_transformer, num_parameters = build_model(
-    num_classes=1000, vocab_len=text_dataset.vocab_size, **config.model)
+    num_classes=1000, vocab_len=text_dataset.vocab_size, **config.model.__dict__)
 
 image_transformer.to(device)
 text_transformer.to(device)
