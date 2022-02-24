@@ -1,11 +1,18 @@
 import torch
+from deepspeed.pipe import LayerSpec, PipelineModule
 from einops import repeat
 from einops.layers.torch import Rearrange, Reduce
 from torch import nn
 
 
 class ImageTransformer(nn.Module):
-    def __init__(self, transformer_encoder: nn.Module, d_model: int, num_classes: int, image_size: int, patch_size: int, num_channels: int = 3) -> None:
+    def __init__(self,
+                 transformer_encoder: nn.Module,
+                 d_model: int,
+                 num_classes: int,
+                 image_size: int,
+                 patch_size: int,
+                 num_channels: int = 3) -> None:
         super().__init__()
 
         self.transformer_encoder = transformer_encoder
@@ -41,6 +48,101 @@ class ImageTransformer(nn.Module):
         x = self.classification_head(x)
 
         return x
+
+
+class MultimodalTransformer(nn.Module):
+    def __init__(self,
+                 n_layers: int = None,
+                 d_model: int = None,
+                 n_heads: int = None,
+                 head_dim: int = None,
+                 feedforward_dim: int = None,
+                 dropout: float = 0.1,
+                 num_classes: int = None,
+                 image_size: int = None,
+                 patch_size: int = None,
+                 seq_length: int = None,
+                 vocab_len: int = None,
+                 num_channels: int = 3,
+                 **kwargs) -> None:
+        super().__init__()
+
+        self.transformer_encoder = TransformerEncoder(
+                                                      n_layers=n_layers,
+                                                      d_model=d_model,
+                                                      n_heads=n_heads,
+                                                      head_dim=head_dim,
+                                                      feedforward_dim=feedforward_dim,
+                                                      dropout=dropout
+                                                      )
+
+        self.patch_size = patch_size
+        self.linear_projection = LayerSpec(nn.Linear,
+                                           patch_size**2 * num_channels, d_model)
+        self.rearrange = Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)',
+                                   p1=self.patch_size, p2=self.patch_size)
+        self.class_token = LayerSpec(nn.Parameter, torch.randn(1, 1, d_model))
+        self.positions = LayerSpec(nn.Parameter, torch.randn(1,
+                                                             ((image_size // patch_size) ** 2) + 1, d_model))
+        self.classification_head = LayerSpec(ImageTransformerClassificationHead,
+                                             d_model, num_classes)
+
+        self.input_embedding = LayerSpec(nn.Embedding, vocab_len, d_model)
+        self.decoder = LayerSpec(nn.Linear, d_model, vocab_len)
+
+        self.register_buffer('positional_encoding',
+                             positional_encoding(seq_length, d_model))
+
+        self.premodule = nn.ModuleDict(
+            {'image': self.image_premodule, 'text': self.text_premodule}
+        )
+
+        self.postmodule = nn.ModuleDict(
+            {'image': self.classification_head, 'text': self.decoder}
+        )
+
+    def image_premodule(self, x: torch.Tensor) -> torch.Tensor:
+        patches = self.rearrange(x)
+        input_vector = self.linear_projection(patches)
+
+        b, n = input_vector.size(0), input_vector.size(1)
+
+        class_tokens = repeat(
+            self.class_token, '() n d -> b n d', b=b)
+        input_vector = torch.cat([class_tokens, input_vector], dim=1)
+
+        input_vector += self.positions[:, :(n + 1)]
+
+        return input_vector
+
+    def text_premodule(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.input_embedding(x)
+
+        x += self.positional_encoding
+
+        return x
+
+    def pre_transformer(self, x: torch.Tensor, mode: str, mask: torch.Tensor = None) -> tuple[torch.Tensor, str, torch.Tensor]:
+        x = self.premodule[mode](x)
+        return x, mode, mask
+
+    def post_transformer(self, x: torch.Tensor, mode: str, mask: torch.Tensor = None) -> tuple[torch.Tensor, str, torch.Tensor]:
+        x = self.postmodule[mode](x)
+        return x, mode, mask
+
+    def forward(self, x: torch.Tensor, mode: str, mask: torch.Tensor = None) -> torch.Tensor:
+
+        x = self.premodule[mode](x)
+        x = self.transformer_encoder(x, mask)
+        x = self.postmodule[mode](x)
+
+        return x
+
+    def parallelize(self, pipeline_stages: int) -> PipelineModule:
+
+        specs = [self.pre_transformer, *self.transformer_encoder.layer_specs, self.post_transformer]
+
+        return PipelineModule(specs, pipeline_stages)
 
 
 class ImageTransformerClassificationHead(nn.Module):
@@ -156,10 +258,10 @@ class TransformerEncoderLayer(nn.Module):
         self.feedforward_block = ResidualConnection(
             self.feedforward, d_model, dropout)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x = self.attention(x, x, x, mask=mask)
         x = self.feedforward_block(x)
-        return x
+        return x, mask
 
 
 class TransformerDecoderLayer(nn.Module):
@@ -191,18 +293,44 @@ class TransformerDecoderLayer(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, num_layers: int, d_model: int, num_heads: int, head_dim: int, feedforward_dim: int, dropout: float = 0.1) -> None:
+    def __init__(self,
+                 num_layers: int,
+                 d_model: int,
+                 num_heads: int,
+                 head_dim: int,
+                 feedforward_dim: int,
+                 dropout: float = 0.1,
+                 **kwargs) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList([TransformerEncoderLayer(
-            d_model, num_heads, head_dim, feedforward_dim, dropout) for _ in range(num_layers)])
+        self.num_layers = num_layers
+        self.layers_are_built = False
+        self.layers = None
+
+        self.layer_specs = [
+            LayerSpec(TransformerEncoderLayer, d_model, num_heads, head_dim, feedforward_dim, dropout) for _ in range(num_layers)]
+
+    def build(self) -> None:
+        if self.layers_are_built:
+            return
+        else:
+            self.layers_are_built = True
+            self.layers = nn.ModuleList(
+                [layer_spec.build() for layer_spec in self.layer_specs])
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        assert self.layers_are_built, "Layers must be built before forward call"
 
         for layer in self.layers:
-            x = layer(x, mask)
+            x, _ = layer(x, mask)
 
         return x
+
+    def to_sequential(self) -> nn.Sequential:
+        if not self.layers_are_built:
+            self.build()
+
+        return nn.Sequential(*self.layers)
 
 
 class TransformerDecoder(nn.Module):

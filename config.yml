@@ -1,5 +1,9 @@
 device: cuda:0
 
+parallel:
+  pp: 4
+  mp: 0
+
 model:
   d_model: 1024
   n_layers: 16
@@ -35,3 +39,4 @@ data:
   imagenet_dir: B:/Imagenet
   wikitext_dir: data/WikiText
   wikitext_dataset: wikitext.pth
+  checkpoint_dir: checkpoints/

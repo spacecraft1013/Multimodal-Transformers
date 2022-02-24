@@ -13,62 +13,6 @@ from torch.utils.data import Dataset
 
 from model import ImageTransformer, TextTransformer, TransformerEncoder
 
-
-def build_model(d_model: int = None, n_layers: int = None, n_heads: int = None, head_dim: int = None, feedforward_dim: int = None, seq_len: int = None, image_size: int = None, patch_size: int = None, num_classes: int = None, vocab_len: int = None, dropout: float = None, load_path: str = None, **kwargs) -> tuple[ImageTransformer, TextTransformer, int]:
-    if load_path is not None:
-        data = torch.load(load_path)
-        config = data['config']
-        transformer_state_dict = data['transformer_encoder']
-        image_transformer_state_dict = data['image_transformer_params']
-        text_transformer_state_dict = data['text_transformer_params']
-
-        for k, v in config['model'].items():
-            locals()[k] = v
-
-    encoder = TransformerEncoder(
-        n_layers, d_model, n_heads, head_dim, feedforward_dim, dropout)
-    # decoder = TransformerDecoder(
-    #     n_layers, d_model, n_heads, head_dim, feedforward_dim, dropout)
-
-    if load_path is not None:
-        encoder.load_state_dict(transformer_state_dict)
-
-    image_transformer = ImageTransformer(
-        encoder, d_model, num_classes, image_size, patch_size)
-    text_transformer = TextTransformer(encoder, d_model, seq_len, vocab_len)
-
-    if load_path is not None:
-        image_transformer.load_state_dict(
-            image_transformer_state_dict, strict=False)
-        text_transformer.load_state_dict(
-            text_transformer_state_dict, strict=False)
-
-    num_parameters = sum(param.numel() for param in encoder.parameters())
-    return image_transformer, text_transformer, num_parameters
-
-
-def build_optimizer(image_transformer: ImageTransformer, text_transformer: TextTransformer, optimizer_config: dict) -> torch.optim.Optimizer:
-    params = list(image_transformer.parameters()) + \
-        list(text_transformer.parameters())
-    optimizer_args = optimizer_config['params']
-
-    if optimizer_config['type'].lower() == 'adam':
-        optimizer_class = optim.Adam
-    elif optimizer_config['type'].lower() == 'sgd':
-        optimizer_class = optim.SGD
-    else:
-        raise NotImplementedError(
-            "Only Adam and SGD optimizers are currently supported")
-
-    if optimizer_config['ZeRO']:
-        optimizer = ZeroRedundancyOptimizer(
-            params, optimizer_class, **optimizer_args)
-    else:
-        optimizer = optimizer_class(params, **optimizer_args)
-
-    return optimizer
-
-
 def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
     if first_item == 'images':
         iterable1, iterable1type = images, 'images'
