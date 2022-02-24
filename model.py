@@ -68,13 +68,13 @@ class MultimodalTransformer(nn.Module):
         super().__init__()
 
         self.transformer_encoder = TransformerEncoder(
-                                                      n_layers=n_layers,
-                                                      d_model=d_model,
-                                                      n_heads=n_heads,
-                                                      head_dim=head_dim,
-                                                      feedforward_dim=feedforward_dim,
-                                                      dropout=dropout
-                                                      )
+            n_layers=n_layers,
+            d_model=d_model,
+            n_heads=n_heads,
+            head_dim=head_dim,
+            feedforward_dim=feedforward_dim,
+            dropout=dropout
+        )
 
         self.patch_size = patch_size
         self.linear_projection = LayerSpec(nn.Linear,
@@ -140,7 +140,8 @@ class MultimodalTransformer(nn.Module):
 
     def parallelize(self, pipeline_stages: int) -> PipelineModule:
 
-        specs = [self.pre_transformer, *self.transformer_encoder.layer_specs, self.post_transformer]
+        specs = [self.pre_transformer, *
+                 self.transformer_encoder.layer_specs, self.post_transformer]
 
         return PipelineModule(specs, pipeline_stages)
 

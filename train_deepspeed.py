@@ -11,10 +11,9 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets as imagesdatasets
 from torchvision import transforms
-from tqdm import trange
 
 from model import MultimodalTransformer
-from utils import WikiTextDataset, alternating_generator, build_model
+from utils import WikiTextDataset, alternating_generator
 
 
 def main():
@@ -64,15 +63,16 @@ def train(args):
     loader = alternating_generator(config['training']['alternate_iters'],
                                    imagenet_cycler, text_cycler, first_item=config['training']['start_with'])
     loader_with_mask = zip(loader, itertools.cycle(torch.triu(torch.ones(config['model']['seq_len'], config['model']
-                                 ['seq_len']) * float('-inf'), diagonal=1)))
+                                                                         ['seq_len']) * float('-inf'), diagonal=1)))
 
     print("Building Model & Optimizer")
     multimodal_transformer = MultimodalTransformer(
         num_classes=1000, vocab_len=text_dataset.vocab_size, **config['model'])
-    pipeline_model = multimodal_transformer.parallelize(pipeline_stages=config['parallel']['pp'])
+    pipeline_model = multimodal_transformer.parallelize(
+        pipeline_stages=config['parallel']['pp'])
 
     multimodal_transformer_parallelism_engine, _, _, _ = deepspeed.initialize(
-        args=args, model=pipeline_model, model_parameters=pipeline_model.parameters(), training_data = loader_with_mask)
+        args=args, model=pipeline_model, model_parameters=pipeline_model.parameters(), training_data=loader_with_mask)
 
     num_parameters = sum(param.numel()
                          for param in pipeline_model.parameters())
@@ -86,4 +86,5 @@ def train(args):
     for step in range(config['training']['train_iters']):
         loss = multimodal_transformer_parallelism_engine.train_batch()
 
-    multimodal_transformer_parallelism_engine.save_state_dict(config['data']['checkpoint_dir'])
+    multimodal_transformer_parallelism_engine.save_state_dict(
+        config['data']['checkpoint_dir'])

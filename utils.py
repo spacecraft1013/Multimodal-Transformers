@@ -6,12 +6,8 @@ from typing import Generator, Iterable
 
 import tokenizers
 import torch
-from torch import optim
-from torch.distributed.optim.zero_redundancy_optimizer import \
-    ZeroRedundancyOptimizer
 from torch.utils.data import Dataset
 
-from model import ImageTransformer, TextTransformer, TransformerEncoder
 
 def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
     if first_item == 'images':
