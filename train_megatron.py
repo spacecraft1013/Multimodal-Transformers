@@ -12,13 +12,13 @@ from utils import MultimodalDataset, build_megatron_model
 
 def get_batch(data_iterator):
     """Build the batch."""
-    data = next(data_iterator)
+    inputs = next(data_iterator)
 
     # only data parallelism; no need for broadcast
-    images = data[0].cuda()
-    labels = data[1].cuda()
+    data = inputs[0].cuda()
+    labels = inputs[1].cuda()
 
-    return images, labels
+    return data, labels
 
 
 def loss_func(labels, output_tensor):
