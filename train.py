@@ -101,14 +101,14 @@ for step in progressbar:
         using_text = False
         model = image_transformer
         image_steps += 1
-        model_args = tuple(src)
+        model_args = (src,)
 
     elif datatype == 'text':
         using_images = False
         using_text = True
         model = text_transformer
         text_steps += 1
-        model_args = tuple(src, mask)
+        model_args = (src, mask)
 
     with autocast():
         output = model(*model_args)
