@@ -1,71 +1,44 @@
-from __future__ import annotations
-
 import multiprocessing as mp
 import os
 from typing import Generator, Iterable
 
 import tokenizers
 import torch
-import yaml
-from torch import optim
-from torch.distributed.optim.zero_redundancy_optimizer import \
-    ZeroRedundancyOptimizer
-from torch.utils.data import Dataset
+from tokenizers import Tokenizer
+from tokenizers.models import BPE
+from torch.utils.data import Dataset, IterableDataset
+from torchvision import datasets as imagedatasets
+from torchvision import transforms
 
-from model import ImageTransformer, TextTransformer, Transformer
-
-
-def build_model(d_model: int = None, n_layers: int = None, n_heads: int = None, head_dim: int = None, feedforward_dim: int = None, seq_len: int = None, image_size: int = None, patch_size: int = None, num_classes: int = None, vocab_len: int = None, dropout: float = None, load_path: str = None, **kwargs) -> tuple[ImageTransformer, TextTransformer, int]:
-    if load_path is not None:
-        data = torch.load(load_path)
-        config = data['config']
-        transformer_state_dict = data['transformer']
-        image_transformer_state_dict = data['image_transformer_params']
-        text_transformer_state_dict = data['text_transformer_params']
-
-        for k, v in config['model'].items():
-            locals()[k] = v
-
-    transformer = Transformer(
-        n_layers, d_model, n_heads, head_dim, feedforward_dim, dropout)
-
-    if load_path is not None:
-        transformer.load_state_dict(transformer_state_dict)
-
-    image_transformer = ImageTransformer(
-        transformer, d_model, num_classes, image_size, patch_size)
-    text_transformer = TextTransformer(transformer, d_model, seq_len, vocab_len)
-
-    if load_path is not None:
-        image_transformer.load_state_dict(
-            image_transformer_state_dict, strict=False)
-        text_transformer.load_state_dict(
-            text_transformer_state_dict, strict=False)
-
-    num_parameters = sum(param.numel() for param in transformer.parameters())
-    return image_transformer, text_transformer, num_parameters
+from megatron import get_args, print_rank_0
+from megatron.model.multimodal_model import MultimodalTransformer
+from megatron.model.utils import init_method_normal, scaled_init_method_normal
 
 
-def build_optimizer(image_transformer: ImageTransformer, text_transformer: TextTransformer, optimizer_config: dict) -> torch.optim.Optimizer:
-    params = list(image_transformer.parameters()) + \
-        list(text_transformer.parameters())
-    optimizer_args = optimizer_config.params.__dict__
+def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTransformer:
 
-    if optimizer_config.type.lower() == 'adam':
-        optimizer_class = optim.Adam
-    elif optimizer_config.type.lower() == 'sgd':
-        optimizer_class = optim.SGD
-    else:
-        raise NotImplementedError(
-            "Only Adam and SGD optimizers are currently supported")
+    print_rank_0("Building Multimodal Transformer")
 
-    if optimizer_config.ZeRO:
-        optimizer = ZeroRedundancyOptimizer(
-            params, optimizer_class, **optimizer_args)
-    else:
-        optimizer = optimizer_class(params, **optimizer_args)
+    args = get_args()
 
-    return optimizer
+    init_method = init_method_normal(args.init_method_std)
+    scaled_init_method = scaled_init_method_normal(args.init_method_std,
+                                                   args.num_layers)
+
+    multimodal_transformer = MultimodalTransformer(
+        init_method=init_method,
+        scaled_init_method=scaled_init_method,
+        attn_mask_type=args.attn_mask_type,
+        num_tokentypes=0,
+        add_pooler=args.add_pooler,
+        pre_process=pre_process,
+        post_process=post_process,
+        num_image_classes=args.num_image_classes,
+        language_model_key='language_model',
+        image_model_key='image_model'
+    )
+
+    return multimodal_transformer
 
 
 def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
@@ -86,19 +59,50 @@ def alternating_generator(frequency: int, images: Iterable, text: Iterable, firs
             yield next(iterable2), iterable2type
 
 
-class Config:
-    def __init__(self, config_path: str = None) -> None:
-        if config_path is not None:
-            self.config_dict = yaml.safe_load(open(config_path, 'r'))
-            self.add_dict(self.config_dict)
+class MultimodalDataset(IterableDataset):
+    def __init__(self, args, frequency: int = 2, first_item: str = 'images') -> None:
+        super().__init__()
 
-    def add_dict(self, d: dict) -> None:
-        for k, v in d.items():
-            if isinstance(v, dict):
-                setattr(self, k, Config())
-                getattr(self, k).add_dict(v)
-            else:
-                setattr(self, k, v)
+        image_transforms = transforms.Compose([
+            transforms.Resize((args.image_size, args.image_size)),
+            transforms.ToTensor()
+        ])
+        self.imagenet_dataset = imagedatasets.ImageNet(
+            args.image_data_path, transform=image_transforms)
+
+        if not os.path.exists(os.path.join(args.text_data_path, 'wikitext.pth')):
+            tokenizer = Tokenizer(BPE.from_file(
+                vocab=os.path.join(args.text_data_path, 'vocab.json'), merges=os.path.join(args.text_data_path, 'merges.txt')))
+            text_dataset = WikiTextDataset(
+                os.path.join(args.text_data_path, 'WikiText'), split='train', tokenizer=tokenizer, seq_len=args.seq_len, num_preprocessing_workers=args.num_preprocessing_workers)
+            text_dataset.save(os.path.join(
+                args.text_data_path, 'wikitext.pth'))
+        else:
+            text_dataset = WikiTextDataset.from_preprocessed(
+                os.path.join(args.text_data_path, 'wikitext.pth'), seq_len=args.seq_len)
+
+        self.text_dataset = text_dataset
+        self.frequency = frequency
+        self.first_item = first_item
+
+    def __len__(self) -> int:
+        return len(self.text_dataset) + len(self.imagenet_dataset)
+
+    def __iter__(self) -> Generator:
+        worker_info = torch.utils.data.get_worker_info()
+
+        if worker_info is None:
+            return iter(alternating_generator(
+                self.frequency, self.imagenet_dataset, self.text_dataset, self.first_item))
+        else:
+            per_worker = int(torch.ceil(
+                (self.end - self.start) / float(worker_info.num_workers)))
+            worker_id = worker_info.id
+            start = worker_id * per_worker
+            end = min(start + per_worker, len(self))
+
+            return iter(alternating_generator(
+                self.frequency, self.imagenet_dataset[start//2:end//2], self.text_dataset[start//2:end//2], self.first_item))
 
 
 class WikiTextDataset(Dataset):
@@ -120,7 +124,7 @@ class WikiTextDataset(Dataset):
                 open(os.path.join(path, f'wiki.{split}.tokens'), encoding="utf8").readlines())
 
     @classmethod
-    def from_preprocessed(cls, filename: str, seq_len: int) -> WikiTextDataset:
+    def from_preprocessed(cls, filename: str, seq_len: int):
         instance = cls(seq_len=seq_len)
         data = torch.load(filename)
 
