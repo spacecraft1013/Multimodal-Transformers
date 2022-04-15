@@ -40,10 +40,7 @@ def forward_step(data_iterator, model):
 
     # Get the batch.
     timers("batch-generator").start()
-    (
-        data,
-        labels,
-    ) = get_batch(data_iterator)
+    data, labels = get_batch(data_iterator)
     timers("batch-generator").stop()
 
     # Forward model. lm_labels
