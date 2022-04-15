@@ -93,23 +93,25 @@ for step in progressbar:
 
     data, datatype = next(loader)
 
+    src, tgt = data
+    src, tgt = src.to(device), tgt.to(device)
+
     if datatype == 'images':
         using_images = True
         using_text = False
         model = image_transformer
         image_steps += 1
+        model_args = tuple(src)
 
     elif datatype == 'text':
         using_images = False
         using_text = True
         model = text_transformer
         text_steps += 1
-
-    src, tgt = data
-    src, tgt = src.to(device), tgt.to(device)
+        model_args = tuple(src, mask)
 
     with autocast():
-        output = model(src)
+        output = model(*model_args)
 
         if using_text:
             output = output.view(-1, output.size(-1))
