@@ -79,6 +79,7 @@ class DatasetConfig:
 
     def add_dict(self, d: dict):
         for key, val in d.items():
+            key = key.replace('-', '_')
             if isinstance(val, dict):
                 setattr(self, key, DatasetConfig())
                 getattr(self, key).add_dict(val)
