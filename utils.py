@@ -1,9 +1,11 @@
 import multiprocessing as mp
 import os
+from argparse import ArgumentParser
 from typing import Generator, Iterable, Iterator
 
 import tokenizers
 import torch
+import yaml
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
 from torch.utils.data import Dataset, IterableDataset
@@ -41,6 +43,13 @@ def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTra
     return multimodal_transformer
 
 
+def args_provider(filename: str, parser: ArgumentParser) -> ArgumentParser:
+    with open(filename, 'r') as f:
+        args_dict = yaml.safe_load(open(filename, 'r'))
+    parser.set_defaults(**args_dict)
+    return parser
+
+
 def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
     if first_item == 'images':
         iterable1, iterable1type = images, 'images'
@@ -64,19 +73,20 @@ class MultimodalDataset(IterableDataset):
         super().__init__()
 
         image_transforms = transforms.Compose([
-            transforms.Resize((args.image_size, args.image_size)),
+            transforms.Resize(
+                (args.multimodal_datasets.image_size, args.multimodal_datasets.image_size)),
             transforms.ToTensor()
         ])
         self.imagenet_dataset = imagedatasets.ImageNet(
-            args.image_data_path, transform=image_transforms)
+            args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
-        if not os.path.exists(os.path.join(args.text_data_path, 'wikitext.pth')):
+        if not os.path.exists(os.path.join(args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)):
             tokenizer = Tokenizer(BPE.from_file(
-                vocab=os.path.join(args.text_data_path, 'vocab.json'), merges=os.path.join(args.text_data_path, 'merges.txt')))
+                vocab=os.path.join(args.multimodal_datasets.wikitext_dir, 'vocab.json'), merges=os.path.join(args.text_data_path, 'merges.txt')))
             text_dataset = WikiTextDataset(
-                os.path.join(args.text_data_path, 'WikiText'), split='train', tokenizer=tokenizer, seq_len=args.seq_len, num_preprocessing_workers=args.num_preprocessing_workers)
+                args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datsets.num_preprocessing_workers)
             text_dataset.save(os.path.join(
-                args.text_data_path, 'wikitext.pth'))
+                args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset))
         else:
             text_dataset = WikiTextDataset.from_preprocessed(
                 os.path.join(args.text_data_path, 'wikitext.pth'), seq_len=args.seq_len)

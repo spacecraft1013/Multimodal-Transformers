@@ -7,7 +7,7 @@ from megatron import get_args, get_timers, print_rank_0
 from megatron.model import ModelType
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-from utils import MultimodalDataset, build_megatron_model
+from utils import MultimodalDataset, args_provider, build_megatron_model
 
 
 def get_batch(data_iterator):
@@ -75,5 +75,6 @@ if __name__ == "__main__":
         build_megatron_model,
         ModelType.encoder_or_decoder,
         forward_step,
-        args_defaults={'dataloader_type': 'cyclic'}
+        args_defaults={'dataloader_type': 'cyclic'},
+        extra_args_provider=partial(args_provider, 'megatron_config.yml')
     )
