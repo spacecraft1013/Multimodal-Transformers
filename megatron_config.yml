@@ -30,7 +30,7 @@ zero-optimization:
   contiguous-gradients: True
   cpu-offload: False
 
-train-micro-batch-size-per-gpu: 4
+micro-batch-size: 4
 
 checkpoint-activations: True
 checkopint-num-layers: 1
