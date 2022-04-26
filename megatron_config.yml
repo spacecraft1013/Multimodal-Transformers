@@ -8,6 +8,7 @@ seq-length: 2048
 max-position-embeddings: 2048
 norm: layernorm
 pos-emb: rotary
+attn-mask-type: local
 no-weight-tying: True
 
 scaled-upper-triang-masked-softmax-fusion: False
@@ -63,6 +64,9 @@ log-interval: 100
 steps-per-print: 10
 keep-last-n-checkpoints: 10
 wall-clock-breakdown: False
+
+img-dim: 256
+patch-dim: 16
 
 multimodal-datasets:
   data-dir: data/

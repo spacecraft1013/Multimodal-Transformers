@@ -14,6 +14,7 @@ from torchvision import datasets as imagedatasets
 from torchvision import transforms
 
 from megatron import get_args, print_rank_0
+from megatron.model.enums import AttnMaskType
 from megatron.model.multimodal_model import MultimodalTransformer
 from megatron.model.utils import init_method_normal, scaled_init_method_normal
 
@@ -31,12 +32,12 @@ def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTra
     multimodal_transformer = MultimodalTransformer(
         init_method=init_method,
         scaled_init_method=scaled_init_method,
-        attn_mask_type=args.attn_mask_type,
+        attn_mask_type=AttnMaskType.padding,
         num_tokentypes=0,
-        add_pooler=args.add_pooler,
+        add_pooler=False,
         pre_process=pre_process,
         post_process=post_process,
-        num_image_classes=args.num_image_classes,
+        num_image_classes=args.num_classes,
         language_model_key='language_model',
         image_model_key='image_model'
     )
@@ -95,7 +96,7 @@ class MultimodalDataset(IterableDataset):
 
         image_transforms = transforms.Compose([
             transforms.Resize(
-                (args.multimodal_datasets.image_size, args.multimodal_datasets.image_size)),
+                (args.img_dim, args.img_dim)),
             transforms.ToTensor()
         ])
         self.imagenet_dataset = imagedatasets.ImageNet(
