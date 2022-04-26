@@ -46,6 +46,12 @@ def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTra
 def args_provider(filename: str, parser: ArgumentParser) -> ArgumentParser:
     with open(filename, 'r') as f:
         args_dict = yaml.safe_load(f)
+
+    for key, value in args_dict.items():
+        if '-' in key:
+            newkey = key.replace('-', '_')
+        args_dict[newkey] = value
+        del args_dict[key]
     parser.set_defaults(**args_dict)
     return parser
 
