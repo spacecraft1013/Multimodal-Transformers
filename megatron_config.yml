@@ -1,9 +1,9 @@
 pipe-parallel-size: 2
 tensor-model-parallel-size: 2
 
-num-layers: 40
-hidden-size: 5120
-num-attention-heads: 40
+num-layers: 32
+hidden-size: 2560
+num-attention-heads: 32
 seq-length: 2048
 max-position-embeddings: 2048
 norm: layernorm
@@ -17,7 +17,7 @@ bias-gelu-fusion: False
 optimizer:
   type: Adam
   params:
-    lr: 0.0001
+    lr: 0.00016
     betas: [0.9, 0.999]
     eps: 1.0e-8
 
