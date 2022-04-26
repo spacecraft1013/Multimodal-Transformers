@@ -1,5 +1,5 @@
 pipe-parallel-size: 2
-model-parallel-size: 2
+tensor-model-parallel-size: 2
 
 num-layers: 40
 hidden-size: 5120
