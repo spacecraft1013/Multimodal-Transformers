@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import torch
@@ -69,6 +70,8 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 
 
 if __name__ == "__main__":
+
+    os.environ["MASTER_ADDR"] = "localhost"
 
     pretrain(
         train_valid_test_datasets_provider,
