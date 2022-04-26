@@ -72,6 +72,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 if __name__ == "__main__":
 
     os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "15000"
 
     pretrain(
         train_valid_test_datasets_provider,
