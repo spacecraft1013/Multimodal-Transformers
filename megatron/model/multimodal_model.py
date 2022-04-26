@@ -4,7 +4,6 @@
 import einops
 import torch
 from megatron import get_args
-from megatron.model.enums import AttnMaskType, LayerType
 from megatron.model.language_model import Embedding, Pooler
 from megatron.model.transformer import ParallelTransformer
 from megatron.model.utils import (get_linear_layer, init_method_normal,
