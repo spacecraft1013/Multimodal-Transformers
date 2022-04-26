@@ -1,6 +1,6 @@
 import multiprocessing as mp
 import os
-from typing import Generator, Iterable
+from typing import Generator, Iterable, Iterator
 
 import tokenizers
 import torch
@@ -88,7 +88,7 @@ class MultimodalDataset(IterableDataset):
     def __len__(self) -> int:
         return len(self.text_dataset) + len(self.imagenet_dataset)
 
-    def __iter__(self) -> Generator:
+    def __iter__(self) -> Iterator:
         worker_info = torch.utils.data.get_worker_info()
 
         if worker_info is None:
