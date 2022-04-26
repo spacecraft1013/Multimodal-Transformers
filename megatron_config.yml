@@ -11,6 +11,16 @@ pos-emb: rotary
 attn-mask-type: local
 no-weight-tying: True
 
+tokenizer-type: GPT2BPETokenizer
+vocab-file: data/vocab.json
+merge-file: data/merges.txt
+
+save: checkpoints
+load: checkpoints
+
+tensorboard-dir: tensorboard
+log-dir: logs
+
 scaled-upper-triang-masked-softmax-fusion: False
 bias-gelu-fusion: False
 

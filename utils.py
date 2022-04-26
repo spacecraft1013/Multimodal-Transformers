@@ -7,8 +7,7 @@ from typing import Generator, Iterable, Iterator
 import tokenizers
 import torch
 import yaml
-from tokenizers import Tokenizer
-from tokenizers.models import BPE
+from megatron.tokenizer.tokenizer import build_tokenizer
 from torch.utils.data import Dataset, IterableDataset
 from torchvision import datasets as imagedatasets
 from torchvision import transforms
@@ -103,8 +102,7 @@ class MultimodalDataset(IterableDataset):
             args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
         if not os.path.exists(os.path.join(args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)):
-            tokenizer = Tokenizer(BPE.from_file(
-                vocab=os.path.join(args.multimodal_datasets.wikitext_dir, 'vocab.json'), merges=os.path.join(args.text_data_path, 'merges.txt')))
+            tokenizer = build_tokenizer(args)
             text_dataset = WikiTextDataset(
                 args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datsets.num_preprocessing_workers)
             text_dataset.save(os.path.join(
