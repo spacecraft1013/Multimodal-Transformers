@@ -1,3 +1,4 @@
+import json
 import multiprocessing as mp
 import os
 from argparse import ArgumentParser
@@ -69,9 +70,28 @@ def alternating_generator(frequency: int, images: Iterable, text: Iterable, firs
             yield next(iterable2), iterable2type
 
 
+class DatasetConfig:
+    def __init__(self, input) -> None:
+        if isinstance(input, str):
+            input = json.loads(input)
+
+        self.add_dict(input)
+
+    def add_dict(self, d: dict):
+        for key, val in d.items():
+            if isinstance(val, dict):
+                setattr(self, key, DatasetConfig())
+                getattr(self, key).add_dict(val)
+            else:
+                setattr(self, key, val)
+
+
 class MultimodalDataset(IterableDataset):
     def __init__(self, args, frequency: int = 2, first_item: str = 'images') -> None:
         super().__init__()
+
+        if isinstance(args.multimodal_datasets, (str, dict)):
+            args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
 
         image_transforms = transforms.Compose([
             transforms.Resize(
