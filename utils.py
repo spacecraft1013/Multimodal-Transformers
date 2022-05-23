@@ -179,7 +179,7 @@ class WikiTextDataset(Dataset):
 
     def _tokenize(self, sample: str) -> torch.Tensor:
         return torch.tensor(
-            self.tokenizer.tokenize(sample).ids, dtype=torch.long)
+            self.tokenizer.tokenize(sample), dtype=torch.long)
 
     def preprocess(self) -> None:
         print(f"Preprocessing set with {self.num_workers} workers")
@@ -192,7 +192,7 @@ class WikiTextDataset(Dataset):
             dataset = []
             for sample in self.raw_data:
                 dataset.append(torch.tensor(
-                    self.tokenizer.encode(sample), dtype=torch.long))
+                    self.tokenizer.tokenize(sample), dtype=torch.long))
 
         dataset = torch.cat(
             tuple(filter(lambda x: x.numel() > 0, dataset)))
