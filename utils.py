@@ -192,7 +192,7 @@ class WikiTextDataset(Dataset):
             dataset = []
             for sample in self.raw_data:
                 dataset.append(torch.tensor(
-                    self.tokenizer.encode(sample).ids, dtype=torch.long))
+                    self.tokenizer.encode(sample), dtype=torch.long))
 
         dataset = torch.cat(
             tuple(filter(lambda x: x.numel() > 0, dataset)))
