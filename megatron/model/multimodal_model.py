@@ -24,9 +24,7 @@ class MultimodalTransformer(nn.Module):
                  add_pooler,
                  pre_process,
                  post_process,
-                 num_image_classes,
-                 language_model_key,
-                 image_model_key) -> None:
+                 num_image_classes) -> None:
         super().__init__()
         self.transformer = ParallelTransformer(
             init_method,
@@ -54,16 +52,20 @@ class MultimodalTransformer(nn.Module):
             post_process=post_process
         )
 
-        self.language_model_key = language_model_key
-        self.image_model_key = image_model_key
 
-    def forward(self, x, key):
-        if key == self.language_model_key:
-            return self.language_model(x)
-        elif key == self.image_model_key:
-            return self.image_model(x)
-        else:
-            raise ValueError(f'Unknown key: {key}')
+    def set_input_tensor(self, input_tensor):
+        assert len(input_tensor.size()) in (4, 2), "Input must be a 4D or 2D tensor"
+        if len(input_tensor.size()) == 4:
+            return self.image_model(input_tensor)
+        elif len(input_tensor.size()) == 2:
+            return self.language_model(input_tensor)
+
+    def forward(self, input):
+        assert len(input.size()) in (4, 2), "Input must be a 4D or 2D tensor"
+        if len(input.size()) == 4:
+            return self.image_model(input)
+        elif len(input.size()) == 2:
+            return self.language_model(input)
 
 
 class VitModel(MegatronModule):

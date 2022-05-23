@@ -36,9 +36,7 @@ def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTra
         add_pooler=False,
         pre_process=pre_process,
         post_process=post_process,
-        num_image_classes=args.num_classes,
-        language_model_key='language_model',
-        image_model_key='image_model'
+        num_image_classes=args.num_classes
     )
 
     return multimodal_transformer
