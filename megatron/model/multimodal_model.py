@@ -54,10 +54,10 @@ class MultimodalTransformer(nn.Module):
 
 
     def set_input_tensor(self, input_tensor):
-        assert len(input_tensor.size()) in (4, 2), "Input must be a 4D or 2D tensor"
-        if len(input_tensor.size()) == 4:
+        assert len(input_tensor[0].size()) in (4, 2), "Input must be a 4D or 2D tensor"
+        if len(input_tensor[0].size()) == 4:
             return self.image_model(input_tensor)
-        elif len(input_tensor.size()) == 2:
+        elif len(input_tensor[0].size()) == 2:
             return self.language_model(input_tensor)
 
     def forward(self, input):
