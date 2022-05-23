@@ -110,7 +110,7 @@ class MultimodalDataset(IterableDataset):
                 args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
             text_dataset.save(save_location)
         else:
-            text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_len)
+            text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
 
         self.text_dataset = text_dataset
         self.frequency = frequency
