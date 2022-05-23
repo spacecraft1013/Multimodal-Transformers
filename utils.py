@@ -2,12 +2,12 @@ import json
 import multiprocessing as mp
 import os
 from argparse import ArgumentParser
-from typing import Generator, Iterable, Iterator
+from typing import Iterable
 
 import tokenizers
 import torch
 import yaml
-from torch.utils.data import Dataset, ConcatDataset
+from torch.utils.data import ConcatDataset, Dataset
 from torchvision import datasets as imagedatasets
 from torchvision import transforms
 
