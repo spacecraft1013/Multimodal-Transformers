@@ -105,7 +105,7 @@ class MultimodalDataset(IterableDataset):
         if not os.path.exists(os.path.join(args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)):
             tokenizer = build_tokenizer(args)
             text_dataset = WikiTextDataset(
-                args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datsets.num_preprocessing_workers)
+                args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
             text_dataset.save(os.path.join(
                 args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset))
         else:
