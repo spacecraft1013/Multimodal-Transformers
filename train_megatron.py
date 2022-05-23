@@ -44,14 +44,7 @@ def forward_step(data_iterator, model):
     data, labels = get_batch(data_iterator)
     timers("batch-generator").stop()
 
-    # Forward model. lm_labels
-    if len(data.size()) == 4:
-        key = 'images'
-    elif len(data.size()) == 2:
-        key = 'text'
-    else:
-        raise ValueError('Invalid Data Size')
-    output_tensor = model(data, key)
+    output_tensor = model(data)
 
     return output_tensor, partial(loss_func, labels)
 

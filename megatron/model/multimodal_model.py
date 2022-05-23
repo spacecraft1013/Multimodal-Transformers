@@ -54,11 +54,12 @@ class MultimodalTransformer(nn.Module):
 
 
     def set_input_tensor(self, input_tensor):
-        assert len(input_tensor[0].size()) in (4, 2), "Input must be a 4D or 2D tensor"
-        if len(input_tensor[0].size()) == 4:
-            return self.image_model(input_tensor)
+        if len(input_tensor) == 0:
+            self.transformer.set_input_tensor(input_tensor)
+        elif len(input_tensor[0].size()) == 4:
+            self.transformer.set_input_tensor(input_tensor)
         elif len(input_tensor[0].size()) == 2:
-            return self.language_model(input_tensor)
+            self.transformer.set_input_tensor(input_tensor[0])
 
     def forward(self, input):
         assert len(input.size()) in (4, 2), "Input must be a 4D or 2D tensor"
@@ -150,10 +151,6 @@ class VitModel(MegatronModule):
                 self.class_head = get_linear_layer(
                     self.hidden_size, num_classes, torch.nn.init.zeros_
                 )
-
-    def set_input_tensor(self, input_tensor):
-        """See megatron.model.transformer.set_input_tensor()"""
-        self.transformer.set_input_tensor(input_tensor)
 
     def forward(self, input):
 
@@ -250,18 +247,6 @@ class TransformerLanguageModel(MegatronModule):
             if self.add_pooler:
                 self.pooler = Pooler(self.hidden_size, self.init_method)
                 self._pooler_key = 'pooler'
-
-    def set_input_tensor(self, input_tensor):
-        """ See megatron.model.transformer.set_input_tensor()"""
-
-        # This is usually handled in schedules.py but some inference code still
-        # gives us non-lists or None
-        if not isinstance(input_tensor, list):
-            input_tensor = [input_tensor]
-
-        assert len(input_tensor) == 1, \
-            'input_tensor should only be length 1 for stage with only encoder'
-        self.encoder.set_input_tensor(input_tensor[0])
 
     def forward(self, enc_input_ids, enc_position_ids, enc_attn_mask,
                 dec_input_ids=None, dec_position_ids=None, dec_attn_mask=None,
