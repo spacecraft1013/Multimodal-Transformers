@@ -102,15 +102,15 @@ class MultimodalDataset(IterableDataset):
         self.imagenet_dataset = imagedatasets.ImageNet(
             args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
-        if not os.path.exists(os.path.join(args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)):
+        save_location = os.path.join(
+            args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)
+        if not os.path.exists(save_location):
             tokenizer = build_tokenizer(args)
             text_dataset = WikiTextDataset(
                 args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
-            text_dataset.save(os.path.join(
-                args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset))
+            text_dataset.save(save_location)
         else:
-            text_dataset = WikiTextDataset.from_preprocessed(
-                os.path.join(args.text_data_path, 'wikitext.pth'), seq_len=args.seq_len)
+            text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_len)
 
         self.text_dataset = text_dataset
         self.frequency = frequency
