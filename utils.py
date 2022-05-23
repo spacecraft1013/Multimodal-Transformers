@@ -142,7 +142,7 @@ class WikiTextDataset(Dataset):
         self.split = split
         self.tokenizer = tokenizer
         if tokenizer:
-            self.vocab_size = tokenizer.get_vocab_size()
+            self.vocab_size = tokenizer.vocab_size
         else:
             self.vocab_size = None
         self.seq_len = seq_len
