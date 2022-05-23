@@ -79,7 +79,7 @@ class MultimodalDataset(Dataset):
                 (args.img_dim, args.img_dim)),
             transforms.ToTensor()
         ])
-        imagenet_dataset = imagedatasets.ImageNet(
+        self.imagenet_dataset = imagedatasets.ImageNet(
             args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
         save_location = os.path.join(
@@ -92,14 +92,25 @@ class MultimodalDataset(Dataset):
         else:
             text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
 
-        self.full_dataset = ConcatDataset([text_dataset, imagenet_dataset])
+        self.text_dataset = text_dataset
+
+        self.state = args.multimodal_datasets.start_sample
+        self.switch = args.train_batch_size
+        self.count = 0
 
     def __len__(self) -> int:
         return len(self.full_dataset)
 
     def __getitem__(self, idx: int) -> Iterable:
-        return self.full_dataset[idx]
-
+        if self.count >= self.switch:
+            self.count = 0
+            self.state = ({"images", "text"} - {self.state})[0]
+        if self.state == "images":
+            self.count += 1
+            return self.imagenet_dataset[idx]
+        elif self.state == "text":
+            self.count += 1
+            return self.text_dataset[idx]
 
 class WikiTextDataset(Dataset):
     def __init__(self, path: str = None, split: str = 'train', tokenizer: tokenizers.Tokenizer = None, seq_len: int = None, num_preprocessing_workers: int = -1) -> None:

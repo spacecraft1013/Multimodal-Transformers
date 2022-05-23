@@ -81,3 +81,4 @@ multimodal-datasets:
   image-size: 256
   wikitext-dir: data/WikiText
   wikitext-dataset: wikitext.pth
+  start-sample: images
