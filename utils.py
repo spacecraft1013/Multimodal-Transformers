@@ -7,8 +7,7 @@ from typing import Generator, Iterable, Iterator
 import tokenizers
 import torch
 import yaml
-from megatron.tokenizer.tokenizer import build_tokenizer
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import Dataset, ConcatDataset
 from torchvision import datasets as imagedatasets
 from torchvision import transforms
 
@@ -16,6 +15,7 @@ from megatron import get_args, print_rank_0
 from megatron.model.enums import AttnMaskType
 from megatron.model.multimodal_model import MultimodalTransformer
 from megatron.model.utils import init_method_normal, scaled_init_method_normal
+from megatron.tokenizer.tokenizer import build_tokenizer
 
 
 def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTransformer:
@@ -52,24 +52,6 @@ def args_provider(filename: str, parser: ArgumentParser) -> ArgumentParser:
     return parser
 
 
-def alternating_generator(frequency: int, images: Iterable, text: Iterable, first_item: str) -> Generator:
-    if first_item == 'images':
-        iterable1, iterable1type = images, 'images'
-        iterable2, iterable2type = text, 'text'
-    elif first_item == 'text':
-        iterable1, iterable1type = text, 'text'
-        iterable2, iterable2type = images, 'images'
-    else:
-        raise ValueError(
-            f'First item must be either "images" or "text", got {first_item}')
-
-    while True:
-        for i in range(frequency):
-            yield next(iterable1), iterable1type
-        for i in range(frequency):
-            yield next(iterable2), iterable2type
-
-
 class DatasetConfig:
     def __init__(self, input) -> None:
         if isinstance(input, str):
@@ -87,8 +69,8 @@ class DatasetConfig:
                 setattr(self, key, val)
 
 
-class MultimodalDataset(IterableDataset):
-    def __init__(self, args, frequency: int = 2, first_item: str = 'images') -> None:
+class MultimodalDataset(Dataset):
+    def __init__(self, args) -> None:
         super().__init__()
 
         if isinstance(args.multimodal_datasets, (str, dict)):
@@ -99,7 +81,7 @@ class MultimodalDataset(IterableDataset):
                 (args.img_dim, args.img_dim)),
             transforms.ToTensor()
         ])
-        self.imagenet_dataset = imagedatasets.ImageNet(
+        imagenet_dataset = imagedatasets.ImageNet(
             args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
         save_location = os.path.join(
@@ -112,28 +94,13 @@ class MultimodalDataset(IterableDataset):
         else:
             text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
 
-        self.text_dataset = text_dataset
-        self.frequency = frequency
-        self.first_item = first_item
+        self.full_dataset = ConcatDataset([text_dataset, imagenet_dataset])
 
     def __len__(self) -> int:
-        return len(self.text_dataset) + len(self.imagenet_dataset)
+        return len(self.full_dataset)
 
-    def __iter__(self) -> Iterator:
-        worker_info = torch.utils.data.get_worker_info()
-
-        if worker_info is None:
-            return iter(alternating_generator(
-                self.frequency, self.imagenet_dataset, self.text_dataset, self.first_item))
-        else:
-            per_worker = int(torch.ceil(
-                (self.end - self.start) / float(worker_info.num_workers)))
-            worker_id = worker_info.id
-            start = worker_id * per_worker
-            end = min(start + per_worker, len(self))
-
-            return iter(alternating_generator(
-                self.frequency, self.imagenet_dataset[start//2:end//2], self.text_dataset[start//2:end//2], self.first_item))
+    def __getitem__(self, idx: int) -> Iterable:
+        return self.full_dataset[idx]
 
 
 class WikiTextDataset(Dataset):
