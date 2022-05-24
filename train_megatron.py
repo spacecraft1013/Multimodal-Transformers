@@ -4,11 +4,13 @@ from functools import partial
 import torch
 import torch.nn.functional as F
 
+from datasets import MultimodalDataset
 from megatron import get_args, get_timers, print_rank_0
 from megatron.model import ModelType
+from megatron.model.multimodal_model import build_megatron_model
 from megatron.training import pretrain
 from megatron.utils import average_losses_across_data_parallel_group
-from utils import MultimodalDataset, args_provider, build_megatron_model
+from utils import args_provider
 
 
 def get_batch(data_iterator):

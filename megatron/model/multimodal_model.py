@@ -3,7 +3,8 @@
 
 import einops
 import torch
-from megatron import get_args
+from megatron import get_args, print_rank_0
+from megatron.model.enums import AttnMaskType
 from megatron.model.language_model import Embedding, Pooler
 from megatron.model.transformer import ParallelTransformer
 from megatron.model.utils import (get_linear_layer, init_method_normal,
@@ -355,3 +356,26 @@ class TransformerLanguageModel(MegatronModule):
                     'could not find data for pooler in the checkpoint'
                 self.pooler.load_state_dict(state_dict[self._pooler_key],
                                             strict=strict)
+
+def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTransformer:
+
+    print_rank_0("Building Multimodal Transformer")
+
+    args = get_args()
+
+    init_method = init_method_normal(args.init_method_std)
+    scaled_init_method = scaled_init_method_normal(args.init_method_std,
+                                                   args.num_layers)
+
+    multimodal_transformer = MultimodalTransformer(
+        init_method=init_method,
+        scaled_init_method=scaled_init_method,
+        attn_mask_type=AttnMaskType.padding,
+        num_tokentypes=0,
+        add_pooler=False,
+        pre_process=pre_process,
+        post_process=post_process,
+        num_image_classes=args.num_classes
+    )
+
+    return multimodal_transformer
