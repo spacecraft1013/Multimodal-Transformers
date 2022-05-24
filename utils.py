@@ -99,7 +99,7 @@ class MultimodalDataset(Dataset):
         self.count = 0
 
     def __len__(self) -> int:
-        return len(self.imagenet_dataset) + len(self.text_dataset)
+        return min(len(self.imagenet_dataset), len(self.text_dataset))
 
     def __getitem__(self, idx: int) -> Iterable:
         if self.count >= self.switch:
@@ -107,7 +107,7 @@ class MultimodalDataset(Dataset):
             self.state = ({"images", "text"} - {self.state})[0]
         if self.state == "images":
             self.count += 1
-            return self.imagenet_dataset[idx + len(self.text_dataset)]
+            return self.imagenet_dataset[idx]
         elif self.state == "text":
             self.count += 1
             return self.text_dataset[idx]
