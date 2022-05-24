@@ -82,15 +82,22 @@ class MultimodalDataset(Dataset):
         self.imagenet_dataset = imagedatasets.ImageNet(
             args.multimodal_datasets.imagenet_dir, transform=image_transforms)
 
-        save_location = os.path.join(
-            args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)
-        if not os.path.exists(save_location):
-            tokenizer = build_tokenizer(args)
-            text_dataset = WikiTextDataset(
-                args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
-            text_dataset.save(save_location)
+        if args.multimodal_datasets.text_dataset.lower() == "wikitext":
+            assert args.multimodal_datasets.wikitext_dir is not None, "Wikitext directory not specified"
+            assert args.multimodal_datasets.wikitext_dataset is not None, "Wikitext file not specified"
+            save_location = os.path.join(
+                args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)
+            if not os.path.exists(save_location):
+                tokenizer = build_tokenizer(args)
+                text_dataset = WikiTextDataset(
+                    args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
+                text_dataset.save(save_location)
+            else:
+                text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
+        elif args.multimodal_datasets.text_dataset.lower == "pile":
+            raise NotImplementedError("Pile dataset not implemented yet")
         else:
-            text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
+            raise ValueError("Unknown text dataset")
 
         self.text_dataset = text_dataset
 

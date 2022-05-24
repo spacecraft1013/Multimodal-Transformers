@@ -79,6 +79,7 @@ multimodal-datasets:
   num-preprocessing-workers: -1
   imagenet-dir: /data/ambouk3/datasets/imagenet
   image-size: 256
+  text-dataset: wikitext
   wikitext-dir: data/WikiText
   wikitext-dataset: wikitext.pth
   start-sample: images
