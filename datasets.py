@@ -36,13 +36,10 @@ class MultimodalDataset(Dataset):
         if isinstance(args.multimodal_datasets, (str, dict)):
             args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
 
-        image_transforms = transforms.Compose([
-            transforms.Resize(
-                (args.img_dim, args.img_dim)),
-            transforms.ToTensor()
-        ])
-        self.imagenet_dataset = imagedatasets.ImageNet(
-            args.multimodal_datasets.imagenet_dir, transform=image_transforms)
+        if args.multimodal_datasets.image_dataset.lower() == "imagenet":
+            self.image_dataset = ImagenetDataset(args)
+        else:
+            raise ValueError(f"Unknown image dataset: {args.multimodal_datasets.image_dataset}")
 
         if args.multimodal_datasets.text_dataset.lower() == "wikitext":
             assert args.multimodal_datasets.wikitext_dir is not None, "Wikitext directory not specified"
@@ -55,11 +52,12 @@ class MultimodalDataset(Dataset):
                     args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
                 text_dataset.save(save_location)
             else:
-                text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
+                text_dataset = WikiTextDataset.from_preprocessed(
+                    save_location, seq_len=args.seq_length)
         elif args.multimodal_datasets.text_dataset.lower == "pile":
             raise NotImplementedError("Pile dataset not implemented yet")
         else:
-            raise ValueError("Unknown text dataset")
+            raise ValueError(f"Unknown text dataset: {args.multimodal_datasets.text_dataset}")
 
         self.text_dataset = text_dataset
 
@@ -68,7 +66,7 @@ class MultimodalDataset(Dataset):
         self.count = 0
 
     def __len__(self) -> int:
-        return max(len(self.imagenet_dataset), len(self.text_dataset))
+        return max(len(self.image_dataset), len(self.text_dataset))
 
     def __getitem__(self, idx: int) -> Iterable:
         if self.count >= self.switch:
@@ -76,14 +74,34 @@ class MultimodalDataset(Dataset):
             self.state = ({"images", "text"} - {self.state})[0]
         if self.state == "images":
             self.count += 1
-            if idx >= len(self.imagenet_dataset):
-                idx = idx % len(self.imagenet_dataset)
-            return self.imagenet_dataset[idx]
+            if idx >= len(self.image_dataset):
+                idx = idx % len(self.image_dataset)
+            return self.image_dataset[idx]
         elif self.state == "text":
             self.count += 1
             if idx >= len(self.text_dataset):
                 idx = idx % len(self.text_dataset)
             return self.text_dataset[idx]
+
+
+class ImagenetDataset(Dataset):
+    def __init__(self, args) -> None:
+        super().__init__()
+
+        image_transforms = transforms.Compose([
+            transforms.Resize(
+                (args.img_dim, args.img_dim)),
+            transforms.ToTensor()
+        ])
+        self.dataset = imagedatasets.ImageNet(
+            args.multimodal_datasets.imagenet_dir, transform=image_transforms)
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, idx: int) -> Iterable:
+        return self.dataset[idx]
+
 
 class WikiTextDataset(Dataset):
     def __init__(self, path: str = None, split: str = 'train', tokenizer: tokenizers.Tokenizer = None, seq_len: int = None, num_preprocessing_workers: int = -1) -> None:
