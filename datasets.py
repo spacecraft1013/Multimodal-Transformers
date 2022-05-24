@@ -30,14 +30,16 @@ class DatasetConfig:
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, args) -> None:
+    def __init__(self, args, name: str = None, image_indices=None, text_indices=None) -> None:
         super().__init__()
+
+        self.name = name
 
         if isinstance(args.multimodal_datasets, (str, dict)):
             args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
 
         if args.multimodal_datasets.image_dataset.lower() == "imagenet":
-            self.image_dataset = ImagenetDataset(args)
+            image_dataset = ImagenetDataset(args)
         else:
             raise ValueError(f"Unknown image dataset: {args.multimodal_datasets.image_dataset}")
 
@@ -59,7 +61,8 @@ class MultimodalDataset(Dataset):
         else:
             raise ValueError(f"Unknown text dataset: {args.multimodal_datasets.text_dataset}")
 
-        self.text_dataset = text_dataset
+        self.text_dataset = text_dataset[text_indices] if text_indices is not None else text_dataset
+        self.image_dataset = image_dataset[image_indices] if image_indices is not None else image_dataset
 
         self.state = args.multimodal_datasets.start_sample
         self.switch = args.micro_batch_size
