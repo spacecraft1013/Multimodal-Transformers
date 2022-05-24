@@ -95,7 +95,7 @@ class MultimodalDataset(Dataset):
         self.text_dataset = text_dataset
 
         self.state = args.multimodal_datasets.start_sample
-        self.switch = args.train_batch_size
+        self.switch = args.micro_batch_size
         self.count = 0
 
     def __len__(self) -> int:
