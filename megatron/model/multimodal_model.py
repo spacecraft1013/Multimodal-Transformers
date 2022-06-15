@@ -57,16 +57,16 @@ class MultimodalTransformer(nn.Module):
     def set_input_tensor(self, input_tensor):
         if input_tensor[0] is None:
             self.transformer.set_input_tensor(input_tensor)
-        elif len(input_tensor[0].size()) == 4:
+        elif input_tensor[0].dim() == 4:
             self.transformer.set_input_tensor(input_tensor)
-        elif len(input_tensor[0].size()) == 2:
+        elif input_tensor[0].dim() == 2:
             self.transformer.set_input_tensor(input_tensor[0])
 
     def forward(self, input):
-        assert len(input.size()) in (4, 2), "Input must be a 4D or 2D tensor"
-        if len(input.size()) == 4:
+        assert input.dim() in (4, 2), "Input must be a 4D or 2D tensor"
+        if input.dim() == 4:
             return self.image_model(input)
-        elif len(input.size()) == 2:
+        elif input.dim() == 2:
             return self.language_model(input)
 
 
