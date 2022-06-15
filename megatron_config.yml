@@ -80,6 +80,7 @@ multimodal-datasets:
   imagenet-dir: /data/ambouk3/datasets/imagenet
   image-size: 256
   text-dataset: wikitext
+  image-dataset: imagenet
   wikitext-dir: data/WikiText
   wikitext-dataset: wikitext.pth
   start-sample: images
