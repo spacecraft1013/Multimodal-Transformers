@@ -76,9 +76,8 @@ patch-dim: 16
 
 multimodal-datasets:
   text-dataset:
-    type: wikitext
-    dir: data/WikiText
-    num-preprocessing-workers: -1
+    type: pile
+    dir: /data/ambouk3/datasets/pile
   image-dataset:
     type: imagenet
     dir: /data/ambouk3/datasets/imagenet
