@@ -31,7 +31,7 @@ class DatasetConfig:
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, args, text_dataset, image_dataset, name: str = None) -> None:
+    def __init__(self, text_dataset, image_dataset, name: str = None) -> None:
         super().__init__()
 
         self.name = name
