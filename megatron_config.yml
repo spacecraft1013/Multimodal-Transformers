@@ -75,12 +75,10 @@ img-dim: 256
 patch-dim: 16
 
 multimodal-datasets:
-  data-dir: data/
-  num-preprocessing-workers: -1
-  imagenet-dir: /data/ambouk3/datasets/imagenet
-  image-size: 256
-  text-dataset: wikitext
-  image-dataset: imagenet
-  wikitext-dir: data/WikiText
-  wikitext-dataset: wikitext.pth
-  start-sample: images
+  text-dataset:
+    type: wikitext
+    dir: data/WikiText
+    num-preprocessing-workers: -1
+  image-dataset:
+    type: imagenet
+    dir: /data/ambouk3/datasets/imagenet

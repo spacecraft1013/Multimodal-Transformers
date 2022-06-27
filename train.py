@@ -27,21 +27,21 @@ image_transforms = transforms.Compose([
 ])
 
 imagenet_dataset = imagesdatasets.ImageNet(
-    config.data.imagenet_dir, transform=image_transforms)
+    config.data.image_data_dir, transform=image_transforms)
 imagenet_loader = DataLoader(imagenet_dataset, shuffle=True,
                              batch_size=config.training.image_batch_size, pin_memory=True, drop_last=True)
 
 print("Loading WikiText103")
-if not os.path.exists(os.path.join(data_dir, config.data.wikitext_dataset)):
+if not os.path.exists(os.path.join(data_dir, 'wikitext.pth')):
     tokenizer = Tokenizer(BPE.from_file(
         vocab=os.path.join(data_dir, 'vocab.json'), merges=os.path.join(data_dir, 'merges.txt')))
     text_dataset = WikiTextDataset(
-        config.data.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=config.model.seq_len, num_preprocessing_workers=config.data.num_preprocessing_workers)
+        config.data.text_data_dir, split='train', tokenizer=tokenizer, seq_len=config.model.seq_len, num_preprocessing_workers=config.data.num_preprocessing_workers)
     text_dataset.save(os.path.join(
-        data_dir, config.data.wikitext_dataset))
+        data_dir, 'wikitext.pth'))
 else:
     text_dataset = WikiTextDataset.from_preprocessed(
-        os.path.join(data_dir, config.data.wikitext_dataset), seq_len=config.model.seq_len)
+        os.path.join(data_dir, 'wikitext.pth'), seq_len=config.model.seq_len)
 
 text_loader = DataLoader(
     text_dataset, batch_size=config.training.text_batch_size, pin_memory=True, drop_last=True)
