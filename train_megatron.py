@@ -22,7 +22,7 @@ def get_batch(data_iterator):
     if data[0].dim() == 4:
         data = data[0].cuda()
         labels = data[1].cuda()
-        return data, labels
+        return 0, data, labels
     else:
         args = get_args()
         tokenizer = get_tokenizer()
@@ -41,7 +41,7 @@ def get_batch(data_iterator):
             args.reset_attention_mask,
             args.eod_mask_loss)
 
-        return tokens, labels, loss_mask, attention_mask, position_ids
+        return 1, tokens, labels, loss_mask, attention_mask, position_ids
 
 
 def loss_func(labels, output_tensor, loss_mask=None):
@@ -70,12 +70,12 @@ def forward_step(data_iterator, model):
     batch_data = get_batch(data_iterator)
     timers("batch-generator").stop()
 
-    if batch_data[0].dim() == 4 and len(batch_data) == 2:
+    if batch_data[0] == 0:
         data, labels = batch_data
         output_tensor = model(data)
         return output_tensor, partial(loss_func, labels)
 
-    elif batch_data[0].dim() == 2 and len(batch_data) == 5:
+    elif batch_data[0] == 1:
         data, labels, loss_mask, attention_mask, position_ids = batch_data
         output_tensor = model(data, position_ids, attention_mask)
         return output_tensor, partial(loss_func, labels=labels, loss_mask=loss_mask)
