@@ -45,8 +45,13 @@ class MultimodalDataset(Dataset):
         return sum(map(len, self.dataset_list))
 
     def __getitem__(self, idx: int) -> Iterable:
-        dataset = self.dataset_list[(
-            idx if isinstance(idx, int) else idx[0]) % 2]
+        if not self.text_dataset:
+            dataset = self.image_dataset
+        elif not self.image_dataset:
+            dataset = self.text_dataset
+        else:
+            dataset = self.dataset_list[(
+                idx if isinstance(idx, int) else idx[0]) % 2]
 
         if idx >= len(dataset):
             idx = idx % len(dataset)
