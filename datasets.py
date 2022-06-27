@@ -36,8 +36,8 @@ class MultimodalDataset(Dataset):
 
         self.name = name
 
-        self.text_dataset = text_dataset
-        self.image_dataset = image_dataset
+        self.text_dataset = text_dataset if text_dataset is not None else []
+        self.image_dataset = image_dataset if image_dataset is not None else []
 
         self.dataset_list = [self.text_dataset, self.image_dataset]
 
