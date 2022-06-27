@@ -153,6 +153,6 @@ class MegatronPretrainingRandomSampler:
             batch.append(idx)
             if len(batch) == self.micro_batch_size:
                 self.consumed_samples += self.micro_batch_times_data_parallel_size
-                dataset = torch.randint(2, generator=g)
+                dataset = torch.randint(2, size=(1,), generator=g).item()
                 yield [(dataset, idx) for idx in batch]
                 batch = []
