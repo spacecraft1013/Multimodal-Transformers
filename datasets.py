@@ -173,8 +173,9 @@ def build_wikitext_datasets(args):
 
 def build_imagenet_datasets(args):
     datasets = []
-    for split in ("train", "valid", "test"):
+    for split in ("train", "val"):
         datasets.append(ImagenetDataset(args, split=split))
+    datasets.append(None)
     return datasets
 
 
