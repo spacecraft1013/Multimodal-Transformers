@@ -53,7 +53,6 @@ class MultimodalTransformer(nn.Module):
             post_process=post_process
         )
 
-
     def set_input_tensor(self, input_tensor):
         if input_tensor[0] is None:
             self.transformer.set_input_tensor(input_tensor)
@@ -63,11 +62,10 @@ class MultimodalTransformer(nn.Module):
             self.transformer.set_input_tensor(input_tensor[0])
 
     def forward(self, input):
-        assert len(input.size()) in (4, 2), "Input must be a 4D or 2D tensor"
-        if len(input.size()) == 4:
-            return self.image_model(input)
-        elif len(input.size()) == 2:
-            return self.language_model(input)
+        if len(input) == 1:
+            return self.image_model(input[0])
+        else:
+            return self.language_model(*input)
 
 
 class VitModel(MegatronModule):
@@ -250,11 +248,10 @@ class TransformerLanguageModel(MegatronModule):
                 self._pooler_key = 'pooler'
 
     def forward(self, enc_input_ids, enc_position_ids, enc_attn_mask,
-                dec_input_ids=None, dec_position_ids=None, dec_attn_mask=None,
-                enc_dec_attn_mask=None, tokentype_ids=None,
+                tokentype_ids=None,
                 inference_params=None,
                 pooling_sequence_index=0,
-                enc_hidden_states=None, output_enc_hidden=False):
+                enc_hidden_states=None):
 
         # Encoder embedding.
         if self.pre_process:
@@ -356,6 +353,7 @@ class TransformerLanguageModel(MegatronModule):
                     'could not find data for pooler in the checkpoint'
                 self.pooler.load_state_dict(state_dict[self._pooler_key],
                                             strict=strict)
+
 
 def build_megatron_model(pre_process: bool, post_process: bool) -> MultimodalTransformer:
 
