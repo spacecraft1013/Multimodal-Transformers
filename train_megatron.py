@@ -19,11 +19,11 @@ def get_batch(data_iterator):
     data = next(data_iterator)
 
     # only data parallelism; no need for broadcast
-    if data[0].dim() == 4:
+    if isinstance(data, list):
         inputs = data[0].cuda()
         labels = data[1].cuda()
         return 0, inputs, labels
-    else:
+    elif isinstance(data, dict):
         args = get_args()
         tokenizer = get_tokenizer()
 
@@ -42,6 +42,8 @@ def get_batch(data_iterator):
             args.eod_mask_loss)
 
         return 1, tokens, labels, loss_mask, attention_mask, position_ids
+    else:
+        raise ValueError(f"Data does not match proper type, got type {type(data)}")
 
 
 def loss_func(output_tensor, labels=None, loss_mask=None):
@@ -52,7 +54,7 @@ def loss_func(output_tensor, labels=None, loss_mask=None):
     correct = (outputs == labels).float()
     accuracy = torch.mean(correct)
 
-    if loss_mask:
+    if loss_mask is not None:
         loss_mask = loss_mask.view(-1)
         loss = torch.sum(loss.view(-1)*loss_mask) / torch.sum(loss_mask)
 
