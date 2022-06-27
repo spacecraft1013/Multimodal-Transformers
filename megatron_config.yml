@@ -78,6 +78,8 @@ multimodal-datasets:
   text-dataset:
     type: pile
     dir: /data/ambouk3/datasets/pile
+    data-impl: mmap
+    splits: 949,50,1
   image-dataset:
     type: imagenet
     dir: /data/ambouk3/datasets/imagenet

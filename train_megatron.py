@@ -69,7 +69,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         "Building Multimodal Dataset"
     )
 
-    return build_multimodal_datasets(args)
+    return build_multimodal_datasets(args, train_val_test_num_samples)
 
 
 if __name__ == "__main__":

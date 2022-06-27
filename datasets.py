@@ -178,13 +178,21 @@ def build_imagenet_datasets(args):
     return datasets
 
 
-def build_multimodal_datasets(args):
+def build_multimodal_datasets(args, train_val_test_num_samples):
     if isinstance(args.multimodal_datasets, (str, dict)):
         args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
 
     if args.multimodal_datasets.text_dataset.type.lower() == "pile":
         text_datasets = build_gpt_datasets(
-            data_prefix=args.multimodal_datasets.text_dataset.dir)
+            data_prefix=args.multimodal_datasets.text_dataset.dir,
+            data_impl=args.multimodal_datasets.text_dataset.data_impl,
+            splits_string=args.multimodal_datasets.text_dataset.splits,
+            train_valid_test_num_samples=train_val_test_num_samples,
+            seq_length=args.seq_length,
+            seed=args.seed,
+            skip_warmup=(not args.mmap_warmup)
+        )
+
     elif args.multimodal_datasets.text_dataset.type.lower() == "wikitext":
         text_datasets = build_wikitext_datasets(args)
     else:
