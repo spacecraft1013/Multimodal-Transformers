@@ -4,7 +4,7 @@ from functools import partial
 import torch
 import torch.nn.functional as F
 
-from datasets import MultimodalDataset
+from datasets import build_multimodal_datasets
 from megatron import get_args, get_timers, print_rank_0
 from megatron.model import ModelType
 from megatron.model.multimodal_model import build_megatron_model
@@ -69,9 +69,7 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
         "Building Multimodal Dataset"
     )
 
-    train_ds = MultimodalDataset(args)
-
-    return train_ds, None, None
+    return build_multimodal_datasets(args)
 
 
 if __name__ == "__main__":

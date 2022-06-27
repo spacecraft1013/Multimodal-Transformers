@@ -3,7 +3,6 @@ import multiprocessing as mp
 import os
 from typing import Iterable
 
-import numpy as np
 import tokenizers
 import torch
 from torch.utils.data import Dataset
@@ -47,7 +46,8 @@ class MultimodalDataset(Dataset):
         return sum(map(len, self.dataset_list))
 
     def __getitem__(self, idx: int) -> Iterable:
-        dataset = self.dataset_list[(idx if isinstance(idx, int) else idx[0]) % 2]
+        dataset = self.dataset_list[(
+            idx if isinstance(idx, int) else idx[0]) % 2]
 
         if idx >= len(dataset):
             idx = idx % len(dataset)
@@ -189,13 +189,19 @@ def build_multimodal_datasets(args):
     elif args.multimodal_datasets.text_dataset.type.lower() == "wikitext":
         text_datasets = build_wikitext_datasets(args)
     else:
-        raise NotImplementedError(f"Text dataset {args.multimodal_datasets.text_dataset.type.lower()} is not available")
+        raise NotImplementedError(
+            f"Text dataset {args.multimodal_datasets.text_dataset.type.lower()} is not available")
 
     if args.multimodal_datasets.image_dataset.type.lower() == "imagenet":
         image_datasets = build_imagenet_datasets(args)
     else:
-        raise NotImplementedError(f"Image dataset {args.multimodal_datasets.image_dataset.type.lower()} is not available")
+        raise NotImplementedError(
+            f"Image dataset {args.multimodal_datasets.image_dataset.type.lower()} is not available")
 
     multimodal_datasets = []
     for split, text_dataset, image_dataset in zip(("train", "valid", "test"), text_datasets, image_datasets):
-        dataset = MultimodalDataset(name=split, text_dataset=text_dataset, image_dataset=image_dataset)
+        dataset = MultimodalDataset(
+            name=split, text_dataset=text_dataset, image_dataset=image_dataset)
+        multimodal_datasets.append(dataset)
+
+    return multimodal_datasets
