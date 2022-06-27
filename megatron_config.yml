@@ -77,7 +77,7 @@ patch-dim: 16
 multimodal-datasets:
   text-dataset:
     type: pile
-    dir: /data/ambouk3/datasets/pile
+    dir: /data/ambouk3/datasets/pile/pile/pile_text_document
     data-impl: mmap
     splits: 949,50,1
   image-dataset:
