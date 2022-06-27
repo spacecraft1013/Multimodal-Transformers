@@ -44,13 +44,14 @@ class MultimodalDataset(Dataset):
     def __len__(self) -> int:
         return sum(map(len, self.dataset_list))
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: tuple[int, int]):
+        dataset_idx, idx = idx
         if not self.text_dataset:
             dataset = self.image_dataset
         elif not self.image_dataset:
             dataset = self.text_dataset
         else:
-            dataset = self.dataset_list[idx % 2]
+            dataset = self.dataset_list[dataset_idx]
 
         if idx >= len(dataset):
             idx = idx % len(dataset)
