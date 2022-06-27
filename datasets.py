@@ -42,7 +42,7 @@ class MultimodalDataset(Dataset):
         self.dataset_list = [self.text_dataset, self.image_dataset]
 
     def __len__(self) -> int:
-        return sum(map(len, self.dataset_list))
+        return max(map(len, self.dataset_list))
 
     def __getitem__(self, idx: tuple[int, int]):
         dataset_idx, idx = idx
