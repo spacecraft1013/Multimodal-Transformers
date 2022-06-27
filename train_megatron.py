@@ -16,14 +16,14 @@ from utils import args_provider
 
 def get_batch(data_iterator):
     """Build the batch."""
-    inputs = next(data_iterator)
+    data = next(data_iterator)
 
     # only data parallelism; no need for broadcast
-    if inputs[0].dim() == 4:
-        data = inputs[0].cuda()
-        labels = inputs[1].cuda()
+    if data[0].dim() == 4:
+        data = data[0].cuda()
+        labels = data[1].cuda()
         return data, labels
-    elif inputs[0].dim() == 2:
+    else:
         args = get_args()
         tokenizer = get_tokenizer()
 
