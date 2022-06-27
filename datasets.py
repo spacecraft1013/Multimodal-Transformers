@@ -50,8 +50,7 @@ class MultimodalDataset(Dataset):
         elif not self.image_dataset:
             dataset = self.text_dataset
         else:
-            dataset = self.dataset_list[(
-                idx if isinstance(idx, int) else idx[0]) % 2]
+            dataset = self.dataset_list[idx % 2]
 
         if idx >= len(dataset):
             idx = idx % len(dataset)
