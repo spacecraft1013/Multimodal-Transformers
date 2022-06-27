@@ -5,11 +5,12 @@ import torch
 import torch.nn.functional as F
 
 from datasets import build_multimodal_datasets
-from megatron import get_args, get_timers, print_rank_0
+from megatron import get_args, get_timers, get_tokenizer, mpu, print_rank_0
 from megatron.model import ModelType
 from megatron.model.multimodal_model import build_megatron_model
 from megatron.training import pretrain
-from megatron.utils import average_losses_across_data_parallel_group
+from megatron.utils import (average_losses_across_data_parallel_group,
+                            get_ltor_masks_and_position_ids)
 from utils import args_provider
 
 
@@ -18,10 +19,29 @@ def get_batch(data_iterator):
     inputs = next(data_iterator)
 
     # only data parallelism; no need for broadcast
-    data = inputs[0].cuda()
-    labels = inputs[1].cuda()
+    if inputs[0].dim() == 4:
+        data = inputs[0].cuda()
+        labels = inputs[1].cuda()
+        return data, labels
+    elif inputs[0].dim() == 2:
+        args = get_args()
+        tokenizer = get_tokenizer()
 
-    return data, labels
+        keys = ['text']
+        dtype = torch.int64
+        data_broadcasted = mpu.broadcast_data(keys, data, dtype)
+        tokens_ = data_broadcasted['text'].long()
+        labels = tokens_[:, 1:].contiguous()
+        tokens = tokens_[:, :-1].contiguous()
+
+        attention_mask, loss_mask, position_ids = get_ltor_masks_and_position_ids(
+            tokens,
+            tokenizer.eod,
+            args.reset_position_ids,
+            args.reset_attention_mask,
+            args.eod_mask_loss)
+
+        return tokens, labels, loss_mask, attention_mask, position_ids
 
 
 def loss_func(labels, output_tensor, loss_mask=None):
@@ -55,7 +75,7 @@ def forward_step(data_iterator, model):
         output_tensor = model(data)
         return output_tensor, partial(loss_func, labels)
 
-    elif batch_data[0].dim() == 2 and len(batch_data) == 4:
+    elif batch_data[0].dim() == 2 and len(batch_data) == 5:
         data, labels, loss_mask, attention_mask, position_ids = batch_data
         output_tensor = model(data, position_ids, attention_mask)
         return output_tensor, partial(loss_func, labels=labels, loss_mask=loss_mask)
