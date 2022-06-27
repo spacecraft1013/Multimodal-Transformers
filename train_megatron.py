@@ -20,9 +20,9 @@ def get_batch(data_iterator):
 
     # only data parallelism; no need for broadcast
     if data[0].dim() == 4:
-        data = data[0].cuda()
+        inputs = data[0].cuda()
         labels = data[1].cuda()
-        return 0, data, labels
+        return 0, inputs, labels
     else:
         args = get_args()
         tokenizer = get_tokenizer()
@@ -44,7 +44,7 @@ def get_batch(data_iterator):
         return 1, tokens, labels, loss_mask, attention_mask, position_ids
 
 
-def loss_func(labels, output_tensor, loss_mask=None):
+def loss_func(output_tensor, labels=None, loss_mask=None):
     logits = output_tensor.contiguous().float()
     loss = F.cross_entropy(logits, labels)
 
@@ -73,7 +73,7 @@ def forward_step(data_iterator, model):
     if batch_data[0] == 0:
         _, data, labels = batch_data
         output_tensor = model((data,))
-        return output_tensor, partial(loss_func, labels)
+        return output_tensor, partial(loss_func, labels=labels)
 
     elif batch_data[0] == 1:
         _, tokens, labels, loss_mask, attention_mask, position_ids = batch_data
