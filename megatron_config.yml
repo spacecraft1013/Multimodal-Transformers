@@ -76,6 +76,7 @@ img-dim: 256
 patch-dim: 16
 
 multimodal-datasets:
+  multimodal-sampler: True
   text-dataset:
     type: pile
     dir: /data/ambouk3/datasets/pile/pile/pile_text_document

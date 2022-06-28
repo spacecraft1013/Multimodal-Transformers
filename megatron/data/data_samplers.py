@@ -36,14 +36,16 @@ def build_pretraining_data_loader(dataset, consumed_samples):
             consumed_samples=consumed_samples,
             micro_batch_size=args.micro_batch_size,
             data_parallel_rank=mpu.get_data_parallel_rank(),
-            data_parallel_size=mpu.get_data_parallel_world_size())
+            data_parallel_size=mpu.get_data_parallel_world_size(),
+            multimodal_sampler=args.multimodal_datasets.multimodal_sampler)
     elif args.dataloader_type == 'cyclic':
         batch_sampler = MegatronPretrainingRandomSampler(
             total_samples=len(dataset),
             consumed_samples=consumed_samples,
             micro_batch_size=args.micro_batch_size,
             data_parallel_rank=mpu.get_data_parallel_rank(),
-            data_parallel_size=mpu.get_data_parallel_world_size())
+            data_parallel_size=mpu.get_data_parallel_world_size(),
+            multimodal_sampler=args.multimodal_datasets.multimodal_sampler)
     else:
         raise Exception('{} dataloader type is not supported.'.format(
                 args.dataloader_type))
@@ -57,7 +59,7 @@ def build_pretraining_data_loader(dataset, consumed_samples):
 class MegatronPretrainingSampler:
 
     def __init__(self, total_samples, consumed_samples, micro_batch_size,
-                 data_parallel_rank, data_parallel_size, drop_last=True):
+                 data_parallel_rank, data_parallel_size, multimodal_sampler, drop_last=True):
         # Keep a copy of input params for later use.
         self.total_samples = total_samples
         self.consumed_samples = consumed_samples
@@ -66,6 +68,7 @@ class MegatronPretrainingSampler:
         self.micro_batch_times_data_parallel_size = \
             self.micro_batch_size * data_parallel_size
         self.drop_last = drop_last
+        self.multimodal_sampler = multimodal_sampler
 
         # Sanity checks.
         assert self.total_samples > 0, \
@@ -94,19 +97,27 @@ class MegatronPretrainingSampler:
             batch.append(idx)
             if len(batch) == self.micro_batch_times_data_parallel_size:
                 start_idx, end_idx = self.get_start_end_idx()
-                yield batch[start_idx:end_idx]
+                if self.multimodal_sampler:
+                    dataset = torch.randint(2, size=(1,)).item()
+                    yield [(dataset, idx) for idx in batch[start_idx:end_idx]]
+                else:
+                    yield batch[start_idx:end_idx]
                 batch = []
 
         # Check the last partial batch and see drop_last is set
         if len(batch) > 0 and not self.drop_last:
             start_idx, end_idx = self.get_start_end_idx()
-            yield batch[start_idx:end_idx]
+            if self.multimodal_sampler:
+                dataset = torch.randint(2, size=(1,)).item()
+                yield [(dataset, idx) for idx in batch[start_idx:end_idx]]
+            else:
+                yield batch[start_idx:end_idx]
 
 
 class MegatronPretrainingRandomSampler:
 
     def __init__(self, total_samples, consumed_samples, micro_batch_size,
-                 data_parallel_rank, data_parallel_size):
+                 data_parallel_rank, data_parallel_size, multimodal_sampler):
         # Keep a copy of input params for later use.
         self.total_samples = total_samples
         self.consumed_samples = consumed_samples
@@ -117,6 +128,7 @@ class MegatronPretrainingRandomSampler:
             self.micro_batch_size * data_parallel_size
         self.last_batch_size = \
             self.total_samples % self.micro_batch_times_data_parallel_size
+        self.multimodal_sampler = multimodal_sampler
 
         # Sanity checks.
         assert self.total_samples > 0, \
@@ -153,6 +165,9 @@ class MegatronPretrainingRandomSampler:
             batch.append(idx)
             if len(batch) == self.micro_batch_size:
                 self.consumed_samples += self.micro_batch_times_data_parallel_size
-                dataset = torch.randint(2, size=(1,), generator=g).item()
-                yield [(dataset, idx) for idx in batch]
+                if self.multimodal_sampler:
+                    dataset = torch.randint(2, size=(1,), generator=g).item()
+                    yield [(dataset, idx) for idx in batch]
+                else:
+                    yield batch
                 batch = []
