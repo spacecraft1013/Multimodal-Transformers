@@ -9,6 +9,8 @@ from torch.utils.data import Dataset
 from torchvision import datasets as imagedatasets
 from torchvision import transforms
 
+from megatron.data.gpt_dataset import \
+    build_train_valid_test_datasets as build_gpt_datasets
 from megatron.tokenizer.tokenizer import build_tokenizer
 
 
@@ -23,67 +25,57 @@ class DatasetConfig:
         for key, val in d.items():
             key = key.replace('-', '_')
             if isinstance(val, dict):
-                setattr(self, key, DatasetConfig())
-                getattr(self, key).add_dict(val)
+                setattr(self, key, DatasetConfig(val))
             else:
                 setattr(self, key, val)
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, args) -> None:
+    def __init__(self, text_dataset, image_dataset, name: str = None) -> None:
         super().__init__()
 
-        if isinstance(args.multimodal_datasets, (str, dict)):
-            args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
+        self.name = name
+
+        self.text_dataset = text_dataset if text_dataset is not None else []
+        self.image_dataset = image_dataset if image_dataset is not None else []
+
+        self.dataset_list = [self.text_dataset, self.image_dataset]
+
+    def __len__(self) -> int:
+        return max(map(len, self.dataset_list))
+
+    def __getitem__(self, idx: tuple[int, int]):
+        dataset_idx, idx = idx
+        if not self.text_dataset:
+            dataset = self.image_dataset
+        elif not self.image_dataset:
+            dataset = self.text_dataset
+        else:
+            dataset = self.dataset_list[dataset_idx]
+
+        if idx >= len(dataset):
+            idx = idx % len(dataset)
+        return dataset[idx]
+
+
+class ImagenetDataset(Dataset):
+    def __init__(self, args, split: str = 'train') -> None:
+        super().__init__()
 
         image_transforms = transforms.Compose([
             transforms.Resize(
                 (args.img_dim, args.img_dim)),
             transforms.ToTensor()
         ])
-        self.imagenet_dataset = imagedatasets.ImageNet(
-            args.multimodal_datasets.imagenet_dir, transform=image_transforms)
-
-        if args.multimodal_datasets.text_dataset.lower() == "wikitext":
-            assert args.multimodal_datasets.wikitext_dir is not None, "Wikitext directory not specified"
-            assert args.multimodal_datasets.wikitext_dataset is not None, "Wikitext file not specified"
-            save_location = os.path.join(
-                args.multimodal_datasets.wikitext_dir, args.multimodal_datasets.wikitext_dataset)
-            if not os.path.exists(save_location):
-                tokenizer = build_tokenizer(args)
-                text_dataset = WikiTextDataset(
-                    args.multimodal_datasets.wikitext_dir, split='train', tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.num_preprocessing_workers)
-                text_dataset.save(save_location)
-            else:
-                text_dataset = WikiTextDataset.from_preprocessed(save_location, seq_len=args.seq_length)
-        elif args.multimodal_datasets.text_dataset.lower == "pile":
-            raise NotImplementedError("Pile dataset not implemented yet")
-        else:
-            raise ValueError("Unknown text dataset")
-
-        self.text_dataset = text_dataset
-
-        self.state = args.multimodal_datasets.start_sample
-        self.switch = args.micro_batch_size
-        self.count = 0
+        self.dataset = imagedatasets.ImageNet(
+            args.multimodal_datasets.image_dataset.dir, split=split, transform=image_transforms)
 
     def __len__(self) -> int:
-        return max(len(self.imagenet_dataset), len(self.text_dataset))
+        return len(self.dataset)
 
     def __getitem__(self, idx: int) -> Iterable:
-        if self.count >= self.switch:
-            self.count = 0
-            self.state = ({"images", "text"} - {self.state})[0]
-        if self.state == "images":
-            self.count += 1
-            if idx >= len(self.imagenet_dataset):
-                idx = idx % len(self.imagenet_dataset)
-            return self.imagenet_dataset[idx]
-        elif self.state == "text":
-            self.count += 1
-            if idx >= len(self.text_dataset):
-                idx = idx % len(self.text_dataset)
-            return self.text_dataset[idx]
+        return self.dataset[idx]
+
 
 class WikiTextDataset(Dataset):
     def __init__(self, path: str = None, split: str = 'train', tokenizer: tokenizers.Tokenizer = None, seq_len: int = None, num_preprocessing_workers: int = -1) -> None:
@@ -165,3 +157,64 @@ class WikiTextDataset(Dataset):
 
         torch.save(save_dict, filename)
         del self.saveable_dataset
+
+
+def build_wikitext_datasets(args):
+    datasets = []
+    for split in ("train", "valid", "test"):
+        save_location = os.path.join(
+            args.multimodal_datasets.text_dataset.dir, f'wikitext_{split}.pth')
+        if not os.path.exists(save_location):
+            tokenizer = build_tokenizer(args)
+            text_dataset = WikiTextDataset(
+                args.multimodal_datasets.text_dataset.dir, split=split, tokenizer=tokenizer, seq_len=args.seq_length, num_preprocessing_workers=args.multimodal_datasets.text_dataset.num_preprocessing_workers)
+            text_dataset.save(save_location)
+        else:
+            text_dataset = WikiTextDataset.from_preprocessed(
+                save_location, seq_len=args.seq_length)
+        datasets.append(text_dataset)
+    return datasets
+
+
+def build_imagenet_datasets(args):
+    datasets = []
+    for split in ("train", "val"):
+        datasets.append(ImagenetDataset(args, split=split))
+    datasets.append(None)
+    return datasets
+
+
+def build_multimodal_datasets(args, train_val_test_num_samples):
+    if isinstance(args.multimodal_datasets, (str, dict)):
+        args.multimodal_datasets = DatasetConfig(args.multimodal_datasets)
+
+    if args.multimodal_datasets.text_dataset.type.lower() == "pile":
+        text_datasets = build_gpt_datasets(
+            data_prefix=args.multimodal_datasets.text_dataset.dir,
+            data_impl=args.multimodal_datasets.text_dataset.data_impl,
+            splits_string=args.multimodal_datasets.text_dataset.splits,
+            train_valid_test_num_samples=train_val_test_num_samples,
+            seq_length=args.seq_length,
+            seed=args.seed,
+            skip_warmup=(not args.mmap_warmup)
+        )
+
+    elif args.multimodal_datasets.text_dataset.type.lower() == "wikitext":
+        text_datasets = build_wikitext_datasets(args)
+    else:
+        raise NotImplementedError(
+            f"Text dataset {args.multimodal_datasets.text_dataset.type.lower()} is not available")
+
+    if args.multimodal_datasets.image_dataset.type.lower() == "imagenet":
+        image_datasets = build_imagenet_datasets(args)
+    else:
+        raise NotImplementedError(
+            f"Image dataset {args.multimodal_datasets.image_dataset.type.lower()} is not available")
+
+    multimodal_datasets = []
+    for split, text_dataset, image_dataset in zip(("train", "valid", "test"), text_datasets, image_datasets):
+        dataset = MultimodalDataset(
+            name=split, text_dataset=text_dataset, image_dataset=image_dataset)
+        multimodal_datasets.append(dataset)
+
+    return multimodal_datasets

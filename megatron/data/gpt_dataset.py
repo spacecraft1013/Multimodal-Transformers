@@ -34,6 +34,9 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     """Build train, valid, and test datasets."""
 
     # Single dataset.
+    if isinstance(data_prefix, str):
+        data_prefix = [data_prefix]
+
     if len(data_prefix) == 1:
         return _build_train_valid_test_datasets(data_prefix[0],
                                                 data_impl, splits_string,
