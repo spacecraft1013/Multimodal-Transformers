@@ -104,6 +104,5 @@ if __name__ == "__main__":
         build_megatron_model,
         ModelType.encoder_or_decoder,
         forward_step,
-        args_defaults={'dataloader_type': 'cyclic'},
         extra_args_provider=partial(args_provider, 'megatron_config.yml')
     )

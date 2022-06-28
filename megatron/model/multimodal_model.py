@@ -56,9 +56,9 @@ class MultimodalTransformer(nn.Module):
     def set_input_tensor(self, input_tensor):
         if input_tensor[0] is None:
             self.transformer.set_input_tensor(input_tensor)
-        elif len(input_tensor[0].size()) == 4:
+        elif input_tensor[0].dim() == 4:
             self.transformer.set_input_tensor(input_tensor)
-        elif len(input_tensor[0].size()) == 2:
+        elif input_tensor[0].dim() == 2:
             self.transformer.set_input_tensor(input_tensor[0])
 
     def forward(self, input):

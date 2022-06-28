@@ -65,6 +65,7 @@ lr-warmup-fraction: 0.01
 save-interval: 10000
 eval-interval: 1000
 eval-iters: 10
+dataloader-type: cyclic
 
 log-interval: 100
 steps-per-print: 10
