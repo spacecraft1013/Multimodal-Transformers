@@ -20,8 +20,15 @@ def get_batch(data_iterator):
 
     # only data parallelism; no need for broadcast
     if isinstance(data, list):
-        inputs = data[0].cuda()
-        labels = data[1].cuda()
+        data = {
+            'inputs': data[0],
+            'labels': data[1]
+        }
+        keys = ['inputs', 'labels']
+        dtype = torch.float32
+        data_broadcasted = mpu.broadcast_data(keys, data, dtype)
+        inputs = data_broadcasted['inputs']
+        labels = data_broadcasted['labels']
         return 0, inputs, labels
     elif isinstance(data, dict):
         args = get_args()
