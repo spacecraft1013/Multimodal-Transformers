@@ -90,7 +90,7 @@ def forward_step(data_iterator, model):
 
     elif batch_data[0] == 1:
         sample_type, tokens, labels, loss_mask, attention_mask, position_ids = batch_data
-        output_tensor = model((tokens, position_ids, attention_mask))
+        output_tensor = model((tokens, position_ids, attention_mask, labels))
         return output_tensor, partial(loss_func, labels=labels, loss_mask=loss_mask, sample_type=sample_type)
 
 

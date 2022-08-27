@@ -5,6 +5,7 @@ import einops
 import torch
 from megatron import get_args, print_rank_0
 from megatron.model.enums import AttnMaskType
+from megatron.model.gpt_model import post_language_model_processing
 from megatron.model.language_model import Embedding, Pooler
 from megatron.model.transformer import ParallelTransformer
 from megatron.model.utils import (get_linear_layer, init_method_normal,
@@ -203,6 +204,7 @@ class TransformerLanguageModel(MegatronModule):
                  output_layer_init_method,
                  attn_mask_type,
                  num_tokentypes=0,
+                 parallel_output=True,
                  add_pooler=False,
                  pre_process=True,
                  post_process=True):
@@ -217,6 +219,8 @@ class TransformerLanguageModel(MegatronModule):
         self.attn_mask_type = attn_mask_type
         self.add_pooler = add_pooler
         self.encoder_hidden_state = None
+        self.parallel_output = parallel_output
+        self.fp16_lm_cross_entropy = args.fp16_lm_cross_entropy
 
         # Embeddings.
         if self.pre_process:
@@ -247,7 +251,7 @@ class TransformerLanguageModel(MegatronModule):
                 self.pooler = Pooler(self.hidden_size, self.init_method)
                 self._pooler_key = 'pooler'
 
-    def forward(self, enc_input_ids, enc_position_ids, enc_attn_mask,
+    def forward(self, enc_input_ids, enc_position_ids, enc_attn_mask, labels,
                 tokentype_ids=None,
                 inference_params=None,
                 pooling_sequence_index=0,
@@ -273,15 +277,7 @@ class TransformerLanguageModel(MegatronModule):
             encoder_output = enc_hidden_states.to(encoder_input.dtype)
 
         if self.post_process:
-            if self.add_pooler:
-                pooled_output = self.pooler(encoder_output,
-                                            pooling_sequence_index)
-
-        # output_enc_hidden refers to when we just need the encoder's
-        # output. For example, it is helpful to compute
-        # similarity between two sequences by average pooling
-        if self.add_pooler and self.post_process:
-            return encoder_output, pooled_output
+            return post_language_model_processing(encoder_output, labels, self.word_embeddings_weight(), self.parallel_output, self.fp16_lm_cross_entropy)
         else:
             return encoder_output
 
