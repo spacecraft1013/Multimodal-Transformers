@@ -19,12 +19,12 @@ def get_batch(data_iterator):
     data = next(data_iterator)
 
     if isinstance(data, list): # image
+        dtype = torch.float32
         data = {
-            'inputs': data[0],
-            'labels': data[1]
+            'inputs': data[0].to(dtype),
+            'labels': data[1].to(dtype)
         }
         keys = ['inputs', 'labels']
-        dtype = torch.float32
         data_broadcasted = mpu.broadcast_data(keys, data, dtype)
         inputs = data_broadcasted['inputs']
         labels = data_broadcasted['labels']
@@ -55,6 +55,7 @@ def get_batch(data_iterator):
 def loss_func(output_tensor, labels=None, loss_mask=None, sample_type=None):
     if sample_type == 0: # image
         logits = output_tensor.contiguous().float()
+        labels = labels.long()
         loss = F.cross_entropy(logits, labels)
 
         outputs = torch.argmax(logits, -1)

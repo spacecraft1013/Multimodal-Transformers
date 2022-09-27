@@ -17,7 +17,7 @@ from torch import nn
 from .module import MegatronModule
 
 
-class MultimodalTransformer(nn.Module):
+class MultimodalTransformer(MegatronModule):
     def __init__(self,
                  init_method,
                  scaled_init_method,
@@ -277,7 +277,7 @@ class TransformerLanguageModel(MegatronModule):
             encoder_output = enc_hidden_states.to(encoder_input.dtype)
 
         if self.post_process:
-            return post_language_model_processing(encoder_output, labels, self.word_embeddings_weight(), self.parallel_output, self.fp16_lm_cross_entropy)
+            return post_language_model_processing(encoder_output, labels, self.embedding.word_embeddings.weight, self.parallel_output, self.fp16_lm_cross_entropy)
         else:
             return encoder_output
 
